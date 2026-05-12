@@ -8,6 +8,7 @@ from colorama import Fore, Style, init as colorama_init
 from openai import OpenAI
 
 from core.config import get_openai_api_key, get_openai_base_url, get_openai_model, load_env
+from core.memory_manager import MemoryManager
 
 SYSTEM_PROMPT = (
     "你是我在镜子里的克隆体，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
@@ -33,7 +34,7 @@ def _ensure_utf8_stdio() -> None:
 
 def _print_banner() -> None:
     title = f"{STYLE_SYSTEM}Mirror Image{STYLE_RESET}"
-    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 0{STYLE_RESET}"
+    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 1（记忆层）{STYLE_RESET}"
     print(f"\n{title}\n{sub}\n")
     print(
         f"{STYLE_SYSTEM}输入你的问题，"
@@ -63,6 +64,26 @@ def _stream_reply(client: OpenAI, model: str, messages: list[dict]) -> str:
     return "".join(buffer)
 
 
+def _memory_augmented_user_content(user_line: str, memory: MemoryManager) -> str:
+    hits = memory.search_relevant_events(user_line, limit=5)
+    if not hits:
+        return user_line
+    lines: list[str] = []
+    for i, h in enumerate(hits, start=1):
+        ts = h.get("timestamp", "")
+        et = h.get("event_type", "")
+        body = h.get("text", "")
+        lines.append(f"[{i}] {ts} | {et}\n{body}")
+    block = "\n\n".join(lines)
+    return (
+        "以下是与当前输入相关的历史事件（含 ISO 时间戳），供你对照推演；"
+        "忽略与当下无关的信息。\n\n"
+        f"{block}\n\n"
+        "---\n\n"
+        f"【当前输入】\n{user_line}"
+    )
+
+
 def main() -> int:
     _ensure_utf8_stdio()
     colorama_init(autoreset=False)
@@ -77,6 +98,7 @@ def main() -> int:
     model = get_openai_model()
     base_url = get_openai_base_url()
     client = OpenAI(api_key=api_key, base_url=base_url)
+    memory = MemoryManager(client)
 
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -97,20 +119,30 @@ def main() -> int:
             print(f"{STYLE_SYSTEM}会话结束。{STYLE_RESET}")
             break
 
-        messages.append({"role": "user", "content": user_line})
+        user_for_model = _memory_augmented_user_content(user_line, memory)
+        turn_messages = [*messages, {"role": "user", "content": user_for_model}]
 
         try:
             print(f"{STYLE_CLONE}镜 › {STYLE_RESET}", end="", flush=True)
-            reply = _stream_reply(client, model, messages)
+            reply = _stream_reply(client, model, turn_messages)
         except Exception as exc:
-            messages.pop()
             print(
                 f"{Fore.RED}[API 错误] {exc}{Style.RESET_ALL}",
                 file=sys.stderr,
             )
             continue
 
+        messages.append({"role": "user", "content": user_line})
         messages.append({"role": "assistant", "content": reply})
+
+        try:
+            memory.add_event(user_line, "User_Thought")
+            memory.add_event(reply, "AI_Intervention")
+        except Exception as exc:
+            print(
+                f"{Fore.RED}[记忆写入失败] {exc}{Style.RESET_ALL}",
+                file=sys.stderr,
+            )
 
     return 0
 

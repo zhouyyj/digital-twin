@@ -1,8 +1,5 @@
-.env
 .chroma_db/
+.env
 state.json
 venv/
 __pycache__/
-*.py[cod]
-.Python
-.DS_Store

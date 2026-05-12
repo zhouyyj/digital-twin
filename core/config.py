@@ -77,3 +77,14 @@ def get_openai_model() -> str:
 def get_openai_base_url() -> str | None:
     url = os.getenv("OPENAI_BASE_URL", "").strip()
     return url or None
+
+
+def get_project_root() -> Path:
+    return _PROJECT_ROOT
+
+
+def get_openai_embedding_model() -> str:
+    return (
+        os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small").strip()
+        or "text-embedding-3-small"
+    )
