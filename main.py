@@ -9,6 +9,7 @@ from openai import OpenAI
 
 from core.config import get_openai_api_key, get_openai_base_url, get_openai_model, load_env
 from core.memory_manager import MemoryManager
+from core.sandbox import CognitiveSandbox
 from core.state_machine import (
     PHYSICAL_ALERT_CN,
     UserState,
@@ -41,11 +42,11 @@ def _ensure_utf8_stdio() -> None:
 
 def _print_banner() -> None:
     title = f"{STYLE_SYSTEM}Mirror Image{STYLE_RESET}"
-    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 2（状态机）{STYLE_RESET}"
+    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 3（沙盒）{STYLE_RESET}"
     print(f"\n{title}\n{sub}\n")
     print(
         f"{STYLE_SYSTEM}输入你的问题，"
-        f"{STYLE_DIM}exit / quit / Ctrl+D 结束{STYLE_RESET}\n"
+        f"{STYLE_DIM}exit / quit / Ctrl+D 结束 · /state · /board [困境] · /simulate [选择]{STYLE_RESET}\n"
     )
 
 
@@ -131,6 +132,7 @@ def main() -> int:
     client = OpenAI(api_key=api_key, base_url=base_url)
     memory = MemoryManager(client)
     user_state = UserState.load()
+    sandbox = CognitiveSandbox(client, memory, user_state, model)
 
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -153,6 +155,28 @@ def main() -> int:
 
         if user_line == "/state":
             _print_user_state(user_state)
+            continue
+
+        if user_line.startswith("/board"):
+            dilemma = user_line.removeprefix("/board").strip()
+            try:
+                sandbox.run_board(dilemma)
+            except Exception as exc:
+                print(
+                    f"{Fore.RED}[沙盒 /board 错误] {exc}{Style.RESET_ALL}",
+                    file=sys.stderr,
+                )
+            continue
+
+        if user_line.startswith("/simulate"):
+            choice = user_line.removeprefix("/simulate").strip()
+            try:
+                sandbox.run_simulate(choice)
+            except Exception as exc:
+                print(
+                    f"{Fore.RED}[沙盒 /simulate 错误] {exc}{Style.RESET_ALL}",
+                    file=sys.stderr,
+                )
             continue
 
         deduction_mode = is_deduction_request(user_line)
