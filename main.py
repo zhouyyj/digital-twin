@@ -20,6 +20,17 @@ STYLE_RESET = Style.RESET_ALL
 STYLE_DIM = Style.DIM
 
 
+def _ensure_utf8_stdio() -> None:
+    """Avoid UnicodeEncodeError when the terminal locale forces ascii on stdout/stderr."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError, AttributeError):
+                pass
+
+
 def _print_banner() -> None:
     title = f"{STYLE_SYSTEM}Mirror Image{STYLE_RESET}"
     sub = f"{Style.DIM}数字孪生与认知推演 · Phase 0{STYLE_RESET}"
@@ -53,6 +64,7 @@ def _stream_reply(client: OpenAI, model: str, messages: list[dict]) -> str:
 
 
 def main() -> int:
+    _ensure_utf8_stdio()
     colorama_init(autoreset=False)
     load_env()
 
