@@ -1,4 +1,5 @@
 .chroma_db/
+state.json
 .env
 state.json
 venv/

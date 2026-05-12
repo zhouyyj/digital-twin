@@ -9,6 +9,13 @@ from openai import OpenAI
 
 from core.config import get_openai_api_key, get_openai_base_url, get_openai_model, load_env
 from core.memory_manager import MemoryManager
+from core.state_machine import (
+    PHYSICAL_ALERT_CN,
+    UserState,
+    deduction_instruction_block,
+    evaluate_deduction_reply,
+    is_deduction_request,
+)
 
 SYSTEM_PROMPT = (
     "你是我在镜子里的克隆体，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
@@ -34,7 +41,7 @@ def _ensure_utf8_stdio() -> None:
 
 def _print_banner() -> None:
     title = f"{STYLE_SYSTEM}Mirror Image{STYLE_RESET}"
-    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 1（记忆层）{STYLE_RESET}"
+    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 2（状态机）{STYLE_RESET}"
     print(f"\n{title}\n{sub}\n")
     print(
         f"{STYLE_SYSTEM}输入你的问题，"
@@ -62,6 +69,30 @@ def _stream_reply(client: OpenAI, model: str, messages: list[dict]) -> str:
     finally:
         print(STYLE_RESET, flush=True)
     return "".join(buffer)
+
+
+def _collect_stream_reply(client: OpenAI, model: str, messages: list[dict]) -> str:
+    """Stream to memory only (for deduction paths that must be validated before display)."""
+    buffer: list[str] = []
+    stream = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        stream=True,
+    )
+    for event in stream:
+        if not event.choices:
+            continue
+        delta = event.choices[0].delta
+        if delta and delta.content:
+            buffer.append(delta.content)
+    return "".join(buffer)
+
+
+def _print_user_state(state: UserState) -> None:
+    print(f"\n{STYLE_SYSTEM}── 物理残余 (/state) ──{STYLE_RESET}")
+    print(f"{STYLE_SYSTEM}capital       : {state.capital:.2f}{STYLE_RESET}")
+    print(f"{STYLE_SYSTEM}energy        : {state.energy:.2f}{STYLE_RESET}")
+    print(f"{STYLE_SYSTEM}entropy_rate  : {state.entropy_rate:.2f}{STYLE_RESET}\n")
 
 
 def _memory_augmented_user_content(user_line: str, memory: MemoryManager) -> str:
@@ -99,6 +130,7 @@ def main() -> int:
     base_url = get_openai_base_url()
     client = OpenAI(api_key=api_key, base_url=base_url)
     memory = MemoryManager(client)
+    user_state = UserState.load()
 
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -119,12 +151,38 @@ def main() -> int:
             print(f"{STYLE_SYSTEM}会话结束。{STYLE_RESET}")
             break
 
+        if user_line == "/state":
+            _print_user_state(user_state)
+            continue
+
+        deduction_mode = is_deduction_request(user_line)
         user_for_model = _memory_augmented_user_content(user_line, memory)
+        if deduction_mode:
+            user_for_model = user_for_model + "\n\n" + deduction_instruction_block(user_state)
+
         turn_messages = [*messages, {"role": "user", "content": user_for_model}]
 
         try:
             print(f"{STYLE_CLONE}镜 › {STYLE_RESET}", end="", flush=True)
-            reply = _stream_reply(client, model, turn_messages)
+            if deduction_mode:
+                reply_full = _collect_stream_reply(client, model, turn_messages)
+                display, outcome = evaluate_deduction_reply(user_state, reply_full)
+                if outcome == "intercepted":
+                    print(
+                        f"{Fore.RED}{PHYSICAL_ALERT_CN}{Style.RESET_ALL}\n",
+                        flush=True,
+                    )
+                    continue
+                if outcome == "no_json":
+                    print(
+                        f"{Fore.YELLOW}[系统] 未解析到有效的状态消耗 JSON，物理数值未变更。"
+                        f"{Style.RESET_ALL}",
+                        file=sys.stderr,
+                    )
+                print(f"{STYLE_CLONE}{display}{STYLE_RESET}\n", flush=True)
+                reply = display
+            else:
+                reply = _stream_reply(client, model, turn_messages)
         except Exception as exc:
             print(
                 f"{Fore.RED}[API 错误] {exc}{Style.RESET_ALL}",
