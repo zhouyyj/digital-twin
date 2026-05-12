@@ -1,0 +1,5 @@
+openai
+chromadb
+pynput
+colorama
+python-dotenv
