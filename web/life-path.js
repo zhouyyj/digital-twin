@@ -1,11 +1,13 @@
 window.MirrorLifePath = (() => {
-  const OPEN = "#3d8f5a";
-  const OPEN_SOFT = "rgba(61, 143, 90, 0.35)";
-  const CLOSED = "#1a1a1a";
-  const CLOSED_STROKE = "#2a2a2a";
-  const TODAY = "#2f6b45";
-  const GRID = "rgba(120, 200, 150, 0.12)";
-  const LABEL = "rgba(210, 230, 220, 0.55)";
+  const OPEN = "#7a9a78";
+  const OPEN_SOFT = "rgba(122, 154, 120, 0.28)";
+  const CLOSED = "#d9cbbd";
+  const CLOSED_STROKE = "#c9b8a8";
+  const TODAY = "#c4785a";
+  const TRUNK = "#b08968";
+  const GRID = "rgba(196, 120, 90, 0.28)";
+  const LABEL = "#8a7668";
+  const FONT = "Noto Sans SC, Songti SC, sans-serif";
 
   function clear(svg) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -158,11 +160,10 @@ window.MirrorLifePath = (() => {
           y: 14,
           fill: LABEL,
           "text-anchor": "middle",
-          "font-family": "IBM Plex Mono, monospace",
-          "font-size": 11,
-          "letter-spacing": "0.12em",
+          "font-family": FONT,
+          "font-size": 12,
         },
-        "TODAY"
+        "今天"
       )
     );
     svg.appendChild(
@@ -172,10 +173,10 @@ window.MirrorLifePath = (() => {
           x: 48,
           y: L.H - 10,
           fill: LABEL,
-          "font-family": "IBM Plex Mono, monospace",
-          "font-size": 11,
+          "font-family": FONT,
+          "font-size": 12,
         },
-        "← THE PAST"
+        "← 走过的路"
       )
     );
     svg.appendChild(
@@ -186,10 +187,10 @@ window.MirrorLifePath = (() => {
           y: L.H - 10,
           fill: LABEL,
           "text-anchor": "end",
-          "font-family": "IBM Plex Mono, monospace",
-          "font-size": 11,
+          "font-family": FONT,
+          "font-size": 12,
         },
-        "THE FUTURE →"
+        "还可能去的地方 →"
       )
     );
 
@@ -208,8 +209,8 @@ window.MirrorLifePath = (() => {
             y: 28,
             fill: OPEN,
             "text-anchor": "middle",
-            "font-family": "IBM Plex Mono, monospace",
-            "font-size": 11,
+            "font-family": FONT,
+            "font-size": 12,
           },
           month.label || `第 ${month.month} 月`
         )
@@ -228,9 +229,9 @@ window.MirrorLifePath = (() => {
         el("path", {
           d: curve(e.from, e.to),
           fill: "none",
-          stroke: isClosed ? CLOSED_STROKE : OPEN,
-          "stroke-width": e.kind === "trunk" ? 3.2 : isClosed ? 1.2 : 1.8,
-          opacity: isClosed ? 0.85 : 1,
+          stroke: isClosed ? CLOSED_STROKE : e.kind === "trunk" ? TRUNK : OPEN,
+          "stroke-width": e.kind === "trunk" ? 3.4 : isClosed ? 1.4 : 2,
+          opacity: isClosed ? 0.7 : 1,
         })
       );
     });
@@ -241,14 +242,18 @@ window.MirrorLifePath = (() => {
       const h = n.kind === "today" ? 36 : 28;
       let fill = OPEN;
       let stroke = OPEN;
+      let textFill = "#f7f4ee";
       if (n.kind === "closed") {
         fill = CLOSED;
-        stroke = "#444";
+        stroke = CLOSED_STROKE;
+        textFill = "#6b5b4e";
       } else if (n.kind === "today") {
         fill = TODAY;
-        stroke = OPEN;
+        stroke = TODAY;
+        textFill = "#fffaf6";
       } else if (n.kind === "trunk") {
-        fill = OPEN;
+        fill = TRUNK;
+        stroke = TRUNK;
       }
       g.appendChild(
         el("rect", {
@@ -256,7 +261,7 @@ window.MirrorLifePath = (() => {
           y: n.y - h / 2,
           width: w,
           height: h,
-          rx: 2,
+          rx: 14,
           fill,
           stroke,
           "stroke-width": n.kind === "today" ? 2 : 1,
@@ -269,9 +274,9 @@ window.MirrorLifePath = (() => {
           {
             x: n.x,
             y: n.y + 4,
-            fill: n.kind === "closed" ? "#888" : "#e8f5ec",
+            fill: textFill,
             "text-anchor": "middle",
-            "font-family": "Noto Sans SC, sans-serif",
+            "font-family": FONT,
             "font-size": n.kind === "today" ? 11 : 10,
           },
           label
@@ -294,7 +299,7 @@ window.MirrorLifePath = (() => {
   function renderHistory(listEl, history, { onPick } = {}) {
     listEl.innerHTML = "";
     if (!history?.length) {
-      listEl.innerHTML = `<p class="history-empty">还没有历史。浇灌材料后，当前未来会被归档到这里。</p>`;
+      listEl.innerHTML = `<p class="history-empty">抽屉还是空的。浇进一点生活之后，旧地图会收在这里。</p>`;
       return;
     }
     [...history].reverse().forEach((h) => {
@@ -302,7 +307,14 @@ window.MirrorLifePath = (() => {
       btn.type = "button";
       btn.className = "history-item";
       const when = (h.archived_at || "").replace("T", " ").slice(0, 19);
-      btn.innerHTML = `<strong>${h.reason || "archive"}</strong><span>${when}</span><em>${
+      const reasonMap = {
+        "water:note": "写了一句日记",
+        "water:upload": "放进了文件",
+        manual: "重新想了一遍",
+        boot: "刚醒来的样子",
+      };
+      const reason = reasonMap[h.reason] || h.reason || "旧地图";
+      btn.innerHTML = `<strong>${reason}</strong><span>${when}</span><em>${
         h.summary || ""
       }</em>`;
       btn.addEventListener("click", () => onPick && onPick(h));

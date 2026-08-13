@@ -4,35 +4,34 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mirror Image</title>
-  <meta name="description" content="本地数字孪生：浇灌私料，改写未来三个月的人生路径图。" />
+  <meta name="description" content="一面温柔的镜子：浇灌日记与影像，看看接下来三个月的路。" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500&family=Syne:wght@600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@500;600&display=swap"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="/assets/app.css" />
 </head>
 <body>
-  <div class="noise" aria-hidden="true"></div>
-
   <div class="shell">
     <aside class="rail">
       <div class="brand-block">
+        <p class="brand-kicker">给你的一面镜子</p>
         <h1 class="brand">Mirror Image</h1>
-        <p class="brand-sub">数字孪生 · 浇灌 · 路径</p>
+        <p class="brand-sub">慢慢浇灌，路会自己长出来。</p>
       </div>
 
       <nav class="tabs" role="tablist">
-        <button type="button" class="tab active" data-view="chat" role="tab">会话</button>
-        <button type="button" class="tab" data-view="paths" role="tab">人生路径</button>
+        <button type="button" class="tab active" data-view="chat" role="tab">聊聊</button>
+        <button type="button" class="tab" data-view="paths" role="tab">人生小路</button>
       </nav>
 
       <div class="meters" id="meters">
-        <div class="meter"><span>capital</span><strong id="m-capital">—</strong></div>
-        <div class="meter"><span>energy</span><strong id="m-energy">—</strong></div>
-        <div class="meter"><span>entropy</span><strong id="m-entropy">—</strong></div>
-        <div class="meter"><span>memory</span><strong id="m-memory">—</strong></div>
+        <div class="meter"><span>储备</span><strong id="m-capital">—</strong></div>
+        <div class="meter"><span>精力</span><strong id="m-energy">—</strong></div>
+        <div class="meter"><span>混乱</span><strong id="m-entropy">—</strong></div>
+        <div class="meter"><span>记忆</span><strong id="m-memory">—</strong></div>
       </div>
 
       <div
@@ -43,32 +42,32 @@
         aria-label="拖放文件以浇灌记忆"
       >
         <div class="drop-ripple" aria-hidden="true"></div>
-        <h2>浇灌</h2>
-        <p>拖入日记 / PDF / 照片。<br />浇灌后，未来三月路径会改写，旧图进入历史。</p>
+        <h2>浇一杯记忆</h2>
+        <p>把日记、照片或文档轻轻放进来。<br />镜子会重新长出未来三个月的路，旧的那张会收进抽屉。</p>
         <input id="fileInput" type="file" multiple hidden />
-        <div class="drop-status" id="dropStatus">等待材料</div>
+        <div class="drop-status" id="dropStatus">等你带来一点生活</div>
       </div>
 
-      <label class="note-label" for="noteInput">快速日记</label>
+      <label class="note-label" for="noteInput">随手写一句</label>
       <textarea
         id="noteInput"
         rows="3"
-        placeholder="今天发生了什么… Cmd/Ctrl+Enter 浇灌"
+        placeholder="今天发生了什么… ⌘/Ctrl + Enter 送进去"
       ></textarea>
-      <button type="button" class="btn btn-ghost" id="noteBtn">写入记忆并改写路径</button>
+      <button type="button" class="btn btn-ghost" id="noteBtn">写入记忆</button>
 
       <div class="tool-row">
-        <button type="button" class="btn btn-ghost" id="boardBtn">/board</button>
-        <button type="button" class="btn btn-ghost" id="simBtn">/simulate</button>
+        <button type="button" class="btn btn-ghost" id="boardBtn">问一问</button>
+        <button type="button" class="btn btn-ghost" id="simBtn">走一段</button>
       </div>
 
-      <p class="rail-foot" id="healthLine">connecting…</p>
+      <p class="rail-foot" id="healthLine">正在点灯…</p>
     </aside>
 
     <main class="stage">
       <section class="view view-chat" id="view-chat">
         <header class="stage-head">
-          <span class="sys">镜面会话</span>
+          <span class="sys">和镜子坐一会儿</span>
           <span class="sys dim" id="modelLine"></span>
         </header>
         <div class="log" id="log" aria-live="polite"></div>
@@ -76,27 +75,27 @@
           <textarea
             id="prompt"
             rows="2"
-            placeholder="对镜子说话… 含「推演」或「做选择」会走物理状态机"
+            placeholder="想说什么就说… 提到「推演」或「做选择」时，镜子会认真算消耗"
             required
           ></textarea>
-          <button class="btn" type="submit" id="sendBtn">发送</button>
+          <button class="btn" type="submit" id="sendBtn">送出</button>
         </form>
       </section>
 
       <section class="view view-paths hidden" id="view-paths">
         <header class="stage-head paths-head">
           <div>
-            <span class="sys">人生路径 · 未来 3 个月</span>
-            <p class="path-summary" id="pathSummary">加载中…</p>
+            <span class="sys">接下来三个月</span>
+            <p class="path-summary" id="pathSummary">正在铺开小路…</p>
           </div>
           <div class="path-actions">
-            <button type="button" class="btn btn-ghost" id="regenPathBtn">重新推演</button>
+            <button type="button" class="btn btn-ghost" id="regenPathBtn">重新想想</button>
           </div>
         </header>
 
         <div class="legend">
-          <span><i class="swatch closed"></i> 已关闭</span>
-          <span><i class="swatch open"></i> 仍开放</span>
+          <span><i class="swatch closed"></i> 已经关上的门</span>
+          <span><i class="swatch open"></i> 还开着的路</span>
           <span><i class="swatch today"></i> 今天</span>
         </div>
 
@@ -105,13 +104,13 @@
         </div>
 
         <aside class="path-detail" id="pathDetail">
-          <h3>节点</h3>
-          <p>点选图上的方块，查看细节与状态增量。</p>
+          <h3>点一点路上的地方</h3>
+          <p>每个小节点都是一种可能。浇灌之后，路会轻轻改道。</p>
         </aside>
 
         <div class="history-panel">
           <div class="history-head">
-            <span class="sys">浇灌前的路径历史</span>
+            <span class="sys">以前的地图</span>
             <span class="sys dim" id="historyCount">0</span>
           </div>
           <div class="history-list" id="historyList"></div>
@@ -122,11 +121,11 @@
 
   <div class="overlay hidden" id="overlay" aria-hidden="true">
     <div class="modal">
-      <h3 id="modalTitle">沙盒</h3>
+      <h3 id="modalTitle">想一想</h3>
       <textarea id="modalInput" rows="4"></textarea>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="modalCancel">取消</button>
-        <button type="button" class="btn" id="modalOk">运行</button>
+        <button type="button" class="btn btn-ghost" id="modalCancel">先算了</button>
+        <button type="button" class="btn" id="modalOk">开始</button>
       </div>
     </div>
   </div>
