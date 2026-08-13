@@ -8,7 +8,7 @@ from colorama import Fore, Style, init as colorama_init
 from openai import OpenAI
 
 from core.config import get_openai_api_key, get_openai_base_url, get_openai_model, load_env
-from core.keyboard_twin import KeyboardTwin
+from core.feeder import PersonalFeeder
 from core.memory_manager import MemoryManager
 from core.sandbox import CognitiveSandbox
 from core.state_machine import (
@@ -21,6 +21,7 @@ from core.state_machine import (
 
 SYSTEM_PROMPT = (
     "你是我在镜子里的克隆体，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
+    "你可以调用用户主动浇灌进记忆的日记、文档与图像描述；不要假装看见未被提供的私料。"
 )
 
 # System chrome: dim green; mirror clone reply: cyan
@@ -43,12 +44,12 @@ def _ensure_utf8_stdio() -> None:
 
 def _print_banner() -> None:
     title = f"{STYLE_SYSTEM}Mirror Image{STYLE_RESET}"
-    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 4（键盘孪生）{STYLE_RESET}"
+    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 4（浇灌）{STYLE_RESET}"
     print(f"\n{title}\n{sub}\n")
     print(
         f"{STYLE_SYSTEM}输入你的问题，"
         f"{STYLE_DIM}exit / quit / Ctrl+D 结束 · /state · /board · /simulate · "
-        f"/twin start|stop|pulse|status{STYLE_RESET}\n"
+        f"/water <路径|note:…> · /memory{STYLE_RESET}\n"
     )
 
 
@@ -106,11 +107,13 @@ def _memory_augmented_user_content(user_line: str, memory: MemoryManager) -> str
     for i, h in enumerate(hits, start=1):
         ts = h.get("timestamp", "")
         et = h.get("event_type", "")
+        src = h.get("source", "")
         body = h.get("text", "")
-        lines.append(f"[{i}] {ts} | {et}\n{body}")
+        src_bit = f" · {src}" if src else ""
+        lines.append(f"[{i}] {ts} | {et}{src_bit}\n{body}")
     block = "\n\n".join(lines)
     return (
-        "以下是与当前输入相关的历史事件（含 ISO 时间戳），供你对照推演；"
+        "以下是与当前输入相关的历史事件与浇灌材料（含 ISO 时间戳），供你对照推演；"
         "忽略与当下无关的信息。\n\n"
         f"{block}\n\n"
         "---\n\n"
@@ -135,7 +138,7 @@ def main() -> int:
     memory = MemoryManager(client)
     user_state = UserState.load()
     sandbox = CognitiveSandbox(client, memory, user_state, model)
-    twin = KeyboardTwin(user_state)
+    feeder = PersonalFeeder(client, memory, model=model)
 
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -143,67 +146,48 @@ def main() -> int:
 
     _print_banner()
 
-    def _shutdown_twin() -> None:
-        if not twin.running:
-            return
-        snap = twin.stop()
-        if snap is None:
-            return
-        try:
-            memory.add_event(snap.as_memory_text(), "User_Thought")
-        except Exception as exc:
-            print(
-                f"{Fore.RED}[记忆写入失败] {exc}{Style.RESET_ALL}",
-                file=sys.stderr,
-            )
-
     while True:
         try:
             user_line = input(f"{STYLE_SYSTEM}你 › {STYLE_RESET}").strip()
         except (EOFError, KeyboardInterrupt):
             print(f"\n{STYLE_SYSTEM}会话结束。{STYLE_RESET}")
-            _shutdown_twin()
             break
 
         if not user_line:
             continue
         if user_line.lower() in {"exit", "quit", ":q"}:
             print(f"{STYLE_SYSTEM}会话结束。{STYLE_RESET}")
-            _shutdown_twin()
             break
 
         if user_line == "/state":
             _print_user_state(user_state)
-            print(f"{STYLE_SYSTEM}{twin.status_line()}{STYLE_RESET}\n")
             continue
 
-        if user_line.startswith("/twin"):
-            arg = user_line.removeprefix("/twin").strip().lower() or "status"
+        if user_line == "/memory":
+            print(
+                f"{STYLE_SYSTEM}记忆库存：{memory.count_events()} 条事件"
+                f"（对话 + 浇灌材料）{STYLE_RESET}\n"
+            )
+            continue
+
+        if user_line.startswith("/water") or user_line.startswith("/feed"):
+            if user_line.startswith("/water"):
+                target = user_line.removeprefix("/water").strip()
+            else:
+                target = user_line.removeprefix("/feed").strip()
             try:
-                if arg in {"start", "on"}:
-                    twin.start()
-                elif arg in {"stop", "off"}:
-                    snap = twin.stop()
-                    if snap is not None:
-                        memory.add_event(snap.as_memory_text(), "User_Thought")
-                        print(f"{STYLE_SYSTEM}{snap.as_memory_text()}{STYLE_RESET}")
-                elif arg == "pulse":
-                    snap = twin.pulse()
-                    if snap is not None:
-                        memory.add_event(snap.as_memory_text(), "User_Thought")
-                        print(f"{STYLE_SYSTEM}{snap.as_memory_text()}{STYLE_RESET}")
-                elif arg == "status":
-                    print(f"{STYLE_SYSTEM}{twin.status_line()}{STYLE_RESET}")
-                else:
-                    print(
-                        f"{Fore.RED}用法：/twin start|stop|pulse|status{Style.RESET_ALL}",
-                        file=sys.stderr,
-                    )
+                results = feeder.water(target)
             except Exception as exc:
                 print(
-                    f"{Fore.RED}[键盘孪生错误] {exc}{Style.RESET_ALL}",
+                    f"{Fore.RED}[浇灌失败] {exc}{Style.RESET_ALL}",
                     file=sys.stderr,
                 )
+                continue
+            total = sum(r.chunks for r in results)
+            print(
+                f"{STYLE_SYSTEM}浇灌完成：{len(results)} 个文件 / 共 {total} 块写入记忆。"
+                f"{STYLE_RESET}\n"
+            )
             continue
 
         if user_line.startswith("/board"):

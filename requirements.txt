@@ -1,5 +1,6 @@
 openai
 chromadb
-pynput
 colorama
 python-dotenv
+pypdf
+python-docx

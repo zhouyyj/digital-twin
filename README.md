@@ -1,6 +1,6 @@
 # Mirror Image
 
-Geek-flavored CLI digital twin and cognitive sandbox: a restrained mirror persona, long-term episodic memory, a hard physical state machine, multi-agent board debates, stepped monthly sims — and a keyboard twin that senses typing *tempo* without keylogging.
+Geek-flavored CLI digital twin and cognitive sandbox: a restrained mirror persona, long-term episodic memory you *water* with personal artifacts, a hard physical state machine, multi-agent board debates, and stepped monthly sims.
 
 ## Phases
 
@@ -10,7 +10,7 @@ Geek-flavored CLI digital twin and cognitive sandbox: a restrained mirror person
 | 1 | Event-sourced memory (`MemoryManager` + ChromaDB) |
 | 2 | Physical state machine (`state.json`, deduction intercepts) |
 | 3 | Cognitive sandbox (`/board`, `/simulate`) |
-| 4 | Keyboard twin (`/twin` via pynput — rhythm only) |
+| 4 | Personal watering (`/water` — diary, docs, images → memory) |
 
 ## Setup
 
@@ -23,16 +23,29 @@ cp .env.example .env
 python main.py
 ```
 
-On macOS, `/twin start` needs **Accessibility** permission for your terminal (System Settings → Privacy & Security → Accessibility).
-
 ## Commands
 
 - Chat normally — mirror persona streams back
-- `/state` — capital / energy / entropy_rate (+ twin status)
+- `/state` — capital / energy / entropy_rate
+- `/memory` — how many events are in the local store
 - `/board [困境]` — three-director debate with memory citations
 - `/simulate [选择]` — 3-month stepped path with entropy friction
-- `/twin start|stop|pulse|status` — cognitive tempo sensor (no key contents stored)
+- `/water <path>` — feed a file or directory (txt/md/pdf/docx/png/jpg/…)
+- `/water note: …` — feed an inline diary line
+- `/feed …` — alias of `/water`
 
-## Privacy
+## Watering
 
-Keyboard twin records inter-key intervals and burst structure only. It never stores which keys were pressed. Session summaries are written as `User_Thought` events for later retrieval.
+Nothing is scraped in the background. You explicitly pour material in:
+
+```text
+/water ~/Diary/2024-spring.md
+/water ./scrapbook/photos
+/water note: 搬家第三天，纸箱还没拆，但睡眠终于回来了。
+```
+
+- Text / markdown / diary → chunked and embedded as `Diary_Entry` or `Document_Artifact`
+- PDF / Word → text extracted, then chunked
+- Images → vision model writes a personal-memory caption, stored as `Image_Artifact`
+
+Later chat, `/board`, and deductions retrieve these the same way as conversation memory.

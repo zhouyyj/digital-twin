@@ -12,8 +12,22 @@ from openai import OpenAI
 
 from core.config import get_openai_embedding_model, get_project_root
 
-EventType = Literal["User_Thought", "AI_Intervention"]
-_EVENT_TYPES: frozenset[str] = frozenset({"User_Thought", "AI_Intervention"})
+EventType = Literal[
+    "User_Thought",
+    "AI_Intervention",
+    "Diary_Entry",
+    "Document_Artifact",
+    "Image_Artifact",
+]
+_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "User_Thought",
+        "AI_Intervention",
+        "Diary_Entry",
+        "Document_Artifact",
+        "Image_Artifact",
+    }
+)
 
 
 class MemoryManager:
@@ -45,7 +59,14 @@ class MemoryManager:
         )
         return list(response.data[0].embedding)
 
-    def add_event(self, text: str, event_type: EventType | str) -> str:
+    def add_event(
+        self,
+        text: str,
+        event_type: EventType | str,
+        *,
+        source: str | None = None,
+        media_kind: str | None = None,
+    ) -> str:
         if event_type not in _EVENT_TYPES:
             raise ValueError(
                 f"event_type must be one of {sorted(_EVENT_TYPES)}, got {event_type!r}"
@@ -58,11 +79,20 @@ class MemoryManager:
         event_id = str(uuid.uuid4())
         vector = self._embed(body)
 
+        meta: dict[str, str] = {
+            "event_type": event_type,
+            "timestamp": timestamp,
+        }
+        if source:
+            meta["source"] = source[:500]
+        if media_kind:
+            meta["media_kind"] = media_kind[:64]
+
         self._collection.add(
             ids=[event_id],
             embeddings=[vector],
             documents=[body],
-            metadatas=[{"event_type": event_type, "timestamp": timestamp}],
+            metadatas=[meta],
         )
         return event_id
 
@@ -100,7 +130,12 @@ class MemoryManager:
                     "text": doc,
                     "timestamp": meta.get("timestamp", ""),
                     "event_type": meta.get("event_type", ""),
+                    "source": meta.get("source", ""),
+                    "media_kind": meta.get("media_kind", ""),
                     "distance": dist,
                 }
             )
         return events
+
+    def count_events(self) -> int:
+        return int(self._collection.count())
