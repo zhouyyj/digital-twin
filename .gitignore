@@ -1,6 +1,6 @@
 .env
 .chroma_db/
-.state.json
+state.json
 .uploads/
 venv/
 __pycache__/
