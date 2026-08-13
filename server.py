@@ -25,6 +25,7 @@ from core.config import (
     load_env,
 )
 from core.feeder import PersonalFeeder
+from core.life_path import LifePathEngine
 from core.memory_manager import MemoryManager
 from core.sandbox import CognitiveSandbox
 from core.state_machine import (
@@ -61,12 +62,26 @@ class AppRuntime:
         self.sandbox = CognitiveSandbox(
             self.client, self.memory, self.state, self.model, print=self._capture_print
         )
+        self.life_path = LifePathEngine(
+            self.client, self.memory, self.state, model=self.model
+        )
+        # Seed graph immediately; LLM refresh happens on first /api/life-path if still seed
+        self.life_path.load_or_seed()
         self.messages: list[dict[str, str]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
         ]
         self._capture: list[str] = []
         self.upload_dir = get_project_root() / ".uploads"
         self.upload_dir.mkdir(parents=True, exist_ok=True)
+
+    def after_water(self, reason: str) -> dict[str, Any]:
+        """Archive current future into history and grow a new 3-month tree."""
+        try:
+            return self.life_path.regenerate(reason=reason, archive=True)
+        except Exception as exc:
+            data = self.life_path.load_or_seed()
+            data["regen_error"] = str(exc)
+            return data
 
     def _capture_print(self, *args: Any, **kwargs: Any) -> None:
         # Strip ANSI-ish callers still pass colorama codes; store plain via str join.
@@ -258,10 +273,12 @@ async def chat(body: ChatIn) -> StreamingResponse:
 def water_note(body: NoteIn) -> dict[str, Any]:
     rt = _rt()
     results = rt.feeder.water(f"note: {body.note.strip()}")
+    life = rt.after_water("water:note")
     return {
         "ok": True,
         "results": [_result_dict(r) for r in results],
         "memory_events": rt.memory.count_events(),
+        "life_path": life,
     }
 
 
@@ -301,10 +318,12 @@ async def water_upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
         for path in saved:
             all_results.extend(rt.feeder.water(str(path)))
 
+        life = rt.after_water("water:upload")
         return {
             "ok": True,
             "results": [_result_dict(r) for r in all_results],
             "memory_events": rt.memory.count_events(),
+            "life_path": life,
         }
     except HTTPException:
         shutil.rmtree(batch_dir, ignore_errors=True)
@@ -312,6 +331,26 @@ async def water_upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
     except Exception as exc:
         shutil.rmtree(batch_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/life-path")
+def get_life_path(refresh: bool = False) -> dict[str, Any]:
+    rt = _rt()
+    if refresh:
+        return rt.life_path.regenerate(reason="manual", archive=True)
+    data = rt.life_path.load_or_seed()
+    if data.get("trigger") == "seed":
+        try:
+            return rt.life_path.regenerate(reason="boot", archive=False)
+        except Exception:
+            return data
+    return data
+
+
+@app.post("/api/life-path/regenerate")
+def regen_life_path() -> dict[str, Any]:
+    rt = _rt()
+    return rt.life_path.regenerate(reason="manual", archive=True)
 
 
 @app.post("/api/board")

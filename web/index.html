@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mirror Image</title>
-  <meta name="description" content="本地数字孪生：拖入日记与影像浇灌记忆，在镜子里对话与推演。" />
+  <meta name="description" content="本地数字孪生：浇灌私料，改写未来三个月的人生路径图。" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -20,8 +20,13 @@
     <aside class="rail">
       <div class="brand-block">
         <h1 class="brand">Mirror Image</h1>
-        <p class="brand-sub">数字孪生 · 浇灌 · 推演</p>
+        <p class="brand-sub">数字孪生 · 浇灌 · 路径</p>
       </div>
+
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab active" data-view="chat" role="tab">会话</button>
+        <button type="button" class="tab" data-view="paths" role="tab">人生路径</button>
+      </nav>
 
       <div class="meters" id="meters">
         <div class="meter"><span>capital</span><strong id="m-capital">—</strong></div>
@@ -39,7 +44,7 @@
       >
         <div class="drop-ripple" aria-hidden="true"></div>
         <h2>浇灌</h2>
-        <p>把日记、PDF、照片拖到这里。<br />或点选文件。</p>
+        <p>拖入日记 / PDF / 照片。<br />浇灌后，未来三月路径会改写，旧图进入历史。</p>
         <input id="fileInput" type="file" multiple hidden />
         <div class="drop-status" id="dropStatus">等待材料</div>
       </div>
@@ -48,9 +53,9 @@
       <textarea
         id="noteInput"
         rows="3"
-        placeholder="今天发生了什么… 回车 Cmd/Ctrl+Enter 浇灌"
+        placeholder="今天发生了什么… Cmd/Ctrl+Enter 浇灌"
       ></textarea>
-      <button type="button" class="btn btn-ghost" id="noteBtn">写入记忆</button>
+      <button type="button" class="btn btn-ghost" id="noteBtn">写入记忆并改写路径</button>
 
       <div class="tool-row">
         <button type="button" class="btn btn-ghost" id="boardBtn">/board</button>
@@ -61,22 +66,57 @@
     </aside>
 
     <main class="stage">
-      <header class="stage-head">
-        <span class="sys">镜面会话</span>
-        <span class="sys dim" id="modelLine"></span>
-      </header>
+      <section class="view view-chat" id="view-chat">
+        <header class="stage-head">
+          <span class="sys">镜面会话</span>
+          <span class="sys dim" id="modelLine"></span>
+        </header>
+        <div class="log" id="log" aria-live="polite"></div>
+        <form class="composer" id="composer">
+          <textarea
+            id="prompt"
+            rows="2"
+            placeholder="对镜子说话… 含「推演」或「做选择」会走物理状态机"
+            required
+          ></textarea>
+          <button class="btn" type="submit" id="sendBtn">发送</button>
+        </form>
+      </section>
 
-      <div class="log" id="log" aria-live="polite"></div>
+      <section class="view view-paths hidden" id="view-paths">
+        <header class="stage-head paths-head">
+          <div>
+            <span class="sys">人生路径 · 未来 3 个月</span>
+            <p class="path-summary" id="pathSummary">加载中…</p>
+          </div>
+          <div class="path-actions">
+            <button type="button" class="btn btn-ghost" id="regenPathBtn">重新推演</button>
+          </div>
+        </header>
 
-      <form class="composer" id="composer">
-        <textarea
-          id="prompt"
-          rows="2"
-          placeholder="对镜子说话… 含「推演」或「做选择」会走物理状态机"
-          required
-        ></textarea>
-        <button class="btn" type="submit" id="sendBtn">发送</button>
-      </form>
+        <div class="legend">
+          <span><i class="swatch closed"></i> 已关闭</span>
+          <span><i class="swatch open"></i> 仍开放</span>
+          <span><i class="swatch today"></i> 今天</span>
+        </div>
+
+        <div class="path-canvas-wrap">
+          <svg id="pathSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="人生路径图"></svg>
+        </div>
+
+        <aside class="path-detail" id="pathDetail">
+          <h3>节点</h3>
+          <p>点选图上的方块，查看细节与状态增量。</p>
+        </aside>
+
+        <div class="history-panel">
+          <div class="history-head">
+            <span class="sys">浇灌前的路径历史</span>
+            <span class="sys dim" id="historyCount">0</span>
+          </div>
+          <div class="history-list" id="historyList"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -91,6 +131,7 @@
     </div>
   </div>
 
+  <script src="/assets/life-path.js"></script>
   <script src="/assets/app.js"></script>
 </body>
 </html>

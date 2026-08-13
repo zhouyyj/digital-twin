@@ -23,7 +23,8 @@ uvicorn server:app --reload --port 8787
 Open [http://127.0.0.1:8787](http://127.0.0.1:8787)
 
 - Drag diaries / PDFs / images onto **浇灌**
-- Chat in the main pane (streaming)
+- Chat in the **会话** tab
+- Open **人生路径** for a Wait-But-Why-style past / TODAY / 3-month future tree (regenerates after watering; old trees stay in history)
 - `/board` and `/simulate` from the side rail
 
 ### Terminal CLI

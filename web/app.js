@@ -15,9 +15,17 @@
   const modalInput = document.getElementById("modalInput");
   const modalCancel = document.getElementById("modalCancel");
   const modalOk = document.getElementById("modalOk");
+  const pathSvg = document.getElementById("pathSvg");
+  const pathSummary = document.getElementById("pathSummary");
+  const pathDetail = document.getElementById("pathDetail");
+  const historyList = document.getElementById("historyList");
+  const historyCount = document.getElementById("historyCount");
+  const regenPathBtn = document.getElementById("regenPathBtn");
 
   let busy = false;
   let modalMode = null;
+  let lifePathData = null;
+  let viewingArchive = null;
 
   function errText(data, fallback) {
     if (!data) return fallback;
@@ -39,9 +47,9 @@
     }
   }
 
-  function addBubble(role, text, extraClass = "") {
+  function addBubble(role, text) {
     const div = document.createElement("div");
-    div.className = `bubble ${role} ${extraClass}`.trim();
+    div.className = `bubble ${role}`;
     const who =
       role === "you"
         ? "你"
@@ -61,36 +69,112 @@
     busy = on;
     sendBtn.disabled = on;
     noteBtn.disabled = on;
+    regenPathBtn.disabled = on;
+  }
+
+  function showView(name) {
+    document.querySelectorAll(".tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.view === name);
+    });
+    document.getElementById("view-chat").classList.toggle("hidden", name !== "chat");
+    document.getElementById("view-paths").classList.toggle("hidden", name !== "paths");
+    if (name === "paths" && lifePathData) paintLifePath(lifePathData);
+  }
+
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => showView(tab.dataset.view));
+  });
+
+  function selectNode(n) {
+    const deltas = [];
+    if (n.capital_delta != null) deltas.push(`capital ${fmtDelta(n.capital_delta)}`);
+    if (n.energy_delta != null) deltas.push(`energy ${fmtDelta(n.energy_delta)}`);
+    if (n.entropy_delta != null) deltas.push(`entropy ${fmtDelta(n.entropy_delta)}`);
+    pathDetail.innerHTML = `
+      <h3>${escapeHtml(n.label || n.id)}</h3>
+      <p>${escapeHtml(n.detail || "（无详细说明）")}</p>
+      ${
+        deltas.length
+          ? `<div class="deltas">${deltas.join(" · ")}</div>`
+          : n.kind === "closed"
+            ? `<div class="deltas">已关闭的岔路</div>`
+            : ""
+      }
+    `;
+  }
+
+  function fmtDelta(n) {
+    const v = Number(n);
+    if (Number.isNaN(v)) return String(n);
+    return (v >= 0 ? "+" : "") + v;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  }
+
+  function paintLifePath(data, { archive } = {}) {
+    viewingArchive = archive || null;
+    const view = archive
+      ? {
+          ...data,
+          summary: archive.summary,
+          today_label: archive.today_label || data.today_label,
+          past: archive.past,
+          future: archive.future,
+        }
+      : data;
+
+    pathSummary.textContent = archive
+      ? `历史快照（${archive.reason}）：${archive.summary || ""}`
+      : view.summary || "—";
+
+    window.MirrorLifePath.render(pathSvg, view, { onSelect: selectNode });
+    window.MirrorLifePath.renderHistory(historyList, data.history || [], {
+      onPick: (h) => paintLifePath(data, { archive: h }),
+    });
+    historyCount.textContent = String((data.history || []).length);
+    pathDetail.innerHTML = `<h3>节点</h3><p>点选图上的方块。绿色是开放未来；近黑是已关闭岔路；中线是 TODAY。</p>`;
+  }
+
+  async function loadLifePath() {
+    const res = await fetch("/api/life-path");
+    if (!res.ok) throw new Error(await res.text());
+    lifePathData = await res.json();
+    paintLifePath(lifePathData);
   }
 
   async function refreshState() {
     const res = await fetch("/api/state");
     if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    setMeters(data);
+    setMeters(await res.json());
   }
 
   async function boot() {
     addBubble(
       "system",
-      "把文件拖进左侧「浇灌」区，或直接对话。含「推演」「做选择」会消耗物理状态。"
+      "左侧浇灌会改写「人生路径」里未来三月的节点；旧推演会进入历史。切换到「人生路径」查看分叉图。"
     );
     try {
       const res = await fetch("/api/health");
       const data = await res.json();
       if (!data.ok) {
         healthLine.textContent = data.error || "offline";
-        addBubble("warn", data.error || "服务器未就绪（检查 OPENAI_API_KEY）");
+        addBubble("warn", data.error || "服务器未就绪");
         return;
       }
       healthLine.textContent = "local · ready";
       modelLine.textContent = data.model || "";
       await refreshState();
+      await loadLifePath();
     } catch (err) {
       healthLine.textContent = "server unreachable";
       addBubble(
         "warn",
-        "无法连接后端。请在项目根目录运行：uvicorn server:app --reload --port 8787"
+        "无法连接后端。请运行：uvicorn server:app --reload --port 8787"
       );
     }
   }
@@ -137,22 +221,15 @@
           } else if (payload.type === "alert") {
             bodyEl.parentElement.remove();
             addBubble("alert", payload.text);
-          } else if (payload.type === "warn") {
-            addBubble("warn", payload.text);
-          } else if (payload.type === "error") {
+          } else if (payload.type === "warn" || payload.type === "error") {
             addBubble("warn", payload.text);
           } else if (payload.type === "done") {
             cursor.remove();
             if (payload.state) setMeters(payload.state);
-          } else if (payload.type === "status") {
-            // ignore or show subtly
           }
         }
       }
       cursor.remove();
-      if (!assembled && bodyEl.textContent === "") {
-        bodyEl.parentElement?.remove();
-      }
     } catch (err) {
       cursor.remove();
       addBubble("warn", String(err.message || err));
@@ -178,6 +255,20 @@
     }
   });
 
+  function applyWaterResult(data, label) {
+    const chunks = (data.results || []).reduce((n, r) => n + r.chunks, 0);
+    dropStatus.textContent = `完成 · ${data.results.length} / ${chunks} 块`;
+    addBubble("system", `${label}写入 ${chunks} 条记忆；人生路径已改写，旧图进入历史。`);
+    if (data.memory_events != null) {
+      document.getElementById("m-memory").textContent = String(data.memory_events);
+    }
+    if (data.life_path) {
+      lifePathData = data.life_path;
+      paintLifePath(lifePathData);
+      showView("paths");
+    }
+  }
+
   async function uploadFiles(fileList) {
     const files = [...fileList];
     if (!files.length) return;
@@ -190,15 +281,7 @@
       const res = await fetch("/api/water/upload", { method: "POST", body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errText(data, "upload failed"));
-      const chunks = (data.results || []).reduce((n, r) => n + r.chunks, 0);
-      dropStatus.textContent = `完成 · ${data.results.length} 文件 / ${chunks} 块`;
-      addBubble(
-        "system",
-        `已浇灌 ${data.results.length} 个文件，写入 ${chunks} 条记忆。`
-      );
-      if (data.memory_events != null) {
-        document.getElementById("m-memory").textContent = String(data.memory_events);
-      }
+      applyWaterResult(data, "已浇灌文件，");
     } catch (err) {
       dropStatus.textContent = "浇灌失败";
       addBubble("warn", String(err.message || err));
@@ -230,11 +313,8 @@
   });
   drop.addEventListener("drop", (e) => {
     drop.classList.remove("dragover");
-    const files = e.dataTransfer?.files;
-    if (files?.length) uploadFiles(files);
+    if (e.dataTransfer?.files?.length) uploadFiles(e.dataTransfer.files);
   });
-
-  // Prevent browser opening files when dropped outside
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("drop", (e) => e.preventDefault());
 
@@ -251,11 +331,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errText(data, "note failed"));
       noteInput.value = "";
-      dropStatus.textContent = "日记已写入";
-      addBubble("system", "已浇灌一条快速日记。");
-      if (data.memory_events != null) {
-        document.getElementById("m-memory").textContent = String(data.memory_events);
-      }
+      applyWaterResult(data, "已浇灌日记，");
     } catch (err) {
       addBubble("warn", String(err.message || err));
     } finally {
@@ -268,6 +344,25 @@
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       sendNote();
+    }
+  });
+
+  regenPathBtn.addEventListener("click", async () => {
+    if (busy) return;
+    setBusy(true);
+    regenPathBtn.textContent = "推演中…";
+    try {
+      const res = await fetch("/api/life-path/regenerate", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(errText(data, "regen failed"));
+      lifePathData = data;
+      paintLifePath(lifePathData);
+      addBubble("system", "已手动重新推演未来三月；上一版进入历史。");
+    } catch (err) {
+      addBubble("warn", String(err.message || err));
+    } finally {
+      regenPathBtn.textContent = "重新推演";
+      setBusy(false);
     }
   });
 
@@ -301,7 +396,8 @@
     const mode = modalMode;
     closeModal();
     setBusy(true);
-    addBubble("system", mode === "board" ? `运行 /board …` : `运行 /simulate …`);
+    showView("chat");
+    addBubble("system", mode === "board" ? "运行 /board …" : "运行 /simulate …");
     try {
       const res = await fetch(mode === "board" ? "/api/board" : "/api/simulate", {
         method: "POST",
