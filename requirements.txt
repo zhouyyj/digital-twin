@@ -4,3 +4,6 @@ colorama
 python-dotenv
 pypdf
 python-docx
+fastapi
+uvicorn
+python-multipart

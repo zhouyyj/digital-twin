@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mirror Image</title>
+  <meta name="description" content="本地数字孪生：拖入日记与影像浇灌记忆，在镜子里对话与推演。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500&family=Syne:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/assets/app.css" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand-block">
+        <h1 class="brand">Mirror Image</h1>
+        <p class="brand-sub">数字孪生 · 浇灌 · 推演</p>
+      </div>
+
+      <div class="meters" id="meters">
+        <div class="meter"><span>capital</span><strong id="m-capital">—</strong></div>
+        <div class="meter"><span>energy</span><strong id="m-energy">—</strong></div>
+        <div class="meter"><span>entropy</span><strong id="m-entropy">—</strong></div>
+        <div class="meter"><span>memory</span><strong id="m-memory">—</strong></div>
+      </div>
+
+      <div
+        class="drop"
+        id="drop"
+        tabindex="0"
+        role="button"
+        aria-label="拖放文件以浇灌记忆"
+      >
+        <div class="drop-ripple" aria-hidden="true"></div>
+        <h2>浇灌</h2>
+        <p>把日记、PDF、照片拖到这里。<br />或点选文件。</p>
+        <input id="fileInput" type="file" multiple hidden />
+        <div class="drop-status" id="dropStatus">等待材料</div>
+      </div>
+
+      <label class="note-label" for="noteInput">快速日记</label>
+      <textarea
+        id="noteInput"
+        rows="3"
+        placeholder="今天发生了什么… 回车 Cmd/Ctrl+Enter 浇灌"
+      ></textarea>
+      <button type="button" class="btn btn-ghost" id="noteBtn">写入记忆</button>
+
+      <div class="tool-row">
+        <button type="button" class="btn btn-ghost" id="boardBtn">/board</button>
+        <button type="button" class="btn btn-ghost" id="simBtn">/simulate</button>
+      </div>
+
+      <p class="rail-foot" id="healthLine">connecting…</p>
+    </aside>
+
+    <main class="stage">
+      <header class="stage-head">
+        <span class="sys">镜面会话</span>
+        <span class="sys dim" id="modelLine"></span>
+      </header>
+
+      <div class="log" id="log" aria-live="polite"></div>
+
+      <form class="composer" id="composer">
+        <textarea
+          id="prompt"
+          rows="2"
+          placeholder="对镜子说话… 含「推演」或「做选择」会走物理状态机"
+          required
+        ></textarea>
+        <button class="btn" type="submit" id="sendBtn">发送</button>
+      </form>
+    </main>
+  </div>
+
+  <div class="overlay hidden" id="overlay" aria-hidden="true">
+    <div class="modal">
+      <h3 id="modalTitle">沙盒</h3>
+      <textarea id="modalInput" rows="4"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="modalCancel">取消</button>
+        <button type="button" class="btn" id="modalOk">运行</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
