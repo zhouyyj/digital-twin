@@ -298,7 +298,7 @@ class CognitiveSandbox:
                 {
                     "role": "system",
                     "content": (
-                        "你是 Mirror Image 的月度沙盘引擎：冷峻、因果清晰，拒绝鸡汤。"
+                        "你是 Digital Twin 的月度沙盘引擎：冷峻、因果清晰，拒绝鸡汤。"
                         "严格遵守用户在文末追加的物理 JSON 协议。"
                     ),
                 },

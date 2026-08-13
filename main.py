@@ -1,4 +1,4 @@
-"""Mirror Image — terminal session with a streamed mirror persona."""
+"""Digital Twin — terminal session with a streamed persona."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from core.state_machine import (
 )
 
 SYSTEM_PROMPT = (
-    "你是我在镜子里的克隆体，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
+    "你是我的数字分身，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
     "你可以调用用户主动浇灌进记忆的日记、文档与图像描述；不要假装看见未被提供的私料。"
 )
 
@@ -43,7 +43,7 @@ def _ensure_utf8_stdio() -> None:
 
 
 def _print_banner() -> None:
-    title = f"{STYLE_SYSTEM}Mirror Image{STYLE_RESET}"
+    title = f"{STYLE_SYSTEM}Digital Twin{STYLE_RESET}"
     sub = f"{Style.DIM}数字孪生与认知推演 · Phase 4（浇灌）{STYLE_RESET}"
     print(f"\n{title}\n{sub}\n")
     print(

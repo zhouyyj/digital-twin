@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mirror Image</title>
-  <meta name="description" content="一面温柔的镜子：浇灌日记与影像，看看接下来三个月的路。" />
+  <title>Digital Twin</title>
+  <meta name="description" content="数字分身：浇灌日记与影像，看看接下来三个月的路。" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -17,8 +17,8 @@
   <div class="shell">
     <aside class="rail">
       <div class="brand-block">
-        <p class="brand-kicker">给你的一面镜子</p>
-        <h1 class="brand">Mirror Image</h1>
+        <p class="brand-kicker">数字分身</p>
+        <h1 class="brand">Digital Twin</h1>
         <p class="brand-sub">慢慢浇灌，路会自己长出来。</p>
       </div>
 
@@ -43,7 +43,7 @@
       >
         <div class="drop-ripple" aria-hidden="true"></div>
         <h2>浇一杯记忆</h2>
-        <p>把日记、照片或文档轻轻放进来。<br />镜子会重新长出未来三个月的路，旧的那张会收进抽屉。</p>
+        <p>把日记、照片或文档轻轻放进来。<br />分身会重新长出未来三个月的路，旧的那张会收进抽屉。</p>
         <input id="fileInput" type="file" multiple hidden />
         <div class="drop-status" id="dropStatus">等你带来一点生活</div>
       </div>
@@ -67,15 +67,15 @@
     <main class="stage">
       <section class="view view-chat" id="view-chat">
         <header class="stage-head">
-          <span class="sys">和镜子坐一会儿</span>
+          <span class="sys">和分身坐一会儿</span>
           <span class="sys dim" id="modelLine"></span>
         </header>
         <div class="log" id="log" aria-live="polite"></div>
         <form class="composer" id="composer">
           <textarea
             id="prompt"
-            rows="2"
-            placeholder="想说什么就说… 提到「推演」或「做选择」时，镜子会认真算消耗"
+            rows="1"
+            placeholder="想说什么就说… Enter 送出，Shift+Enter 换行。提到「推演」或「做选择」时会认真算消耗"
             required
           ></textarea>
           <button class="btn" type="submit" id="sendBtn">送出</button>
@@ -87,34 +87,37 @@
           <div>
             <span class="sys">接下来三个月</span>
             <p class="path-summary" id="pathSummary">正在铺开小路…</p>
+            <p class="path-hint">拖节点改位置 · 空白处拖动画布 · 滚轮缩放</p>
           </div>
           <div class="path-actions">
+            <button type="button" class="btn btn-ghost" id="resetCamBtn">回到中心</button>
             <button type="button" class="btn btn-ghost" id="regenPathBtn">重新想想</button>
           </div>
         </header>
 
-        <div class="legend">
-          <span><i class="swatch closed"></i> 已经关上的门</span>
-          <span><i class="swatch open"></i> 还开着的路</span>
-          <span><i class="swatch today"></i> 今天</span>
-        </div>
-
-        <div class="path-canvas-wrap">
+        <div class="path-workspace">
           <svg id="pathSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="人生路径图"></svg>
+
+          <aside class="inspector" id="inspector" hidden>
+            <button type="button" class="inspector-close" id="inspectorClose" aria-label="关闭">×</button>
+            <label>名字
+              <input id="inspLabel" maxlength="40" />
+            </label>
+            <label>这句话
+              <textarea id="inspDetail" rows="4" maxlength="800"></textarea>
+            </label>
+            <p class="insp-deltas" id="inspDeltas"></p>
+            <p class="insp-hint" id="inspHint">改完会自动记住。</p>
+          </aside>
         </div>
 
-        <aside class="path-detail" id="pathDetail">
-          <h3>点一点路上的地方</h3>
-          <p>每个小节点都是一种可能。浇灌之后，路会轻轻改道。</p>
-        </aside>
-
-        <div class="history-panel">
-          <div class="history-head">
-            <span class="sys">以前的地图</span>
+        <details class="history-drawer" id="historyDrawer">
+          <summary>
+            以前的地图
             <span class="sys dim" id="historyCount">0</span>
-          </div>
+          </summary>
           <div class="history-list" id="historyList"></div>
-        </div>
+        </details>
       </section>
     </main>
   </div>

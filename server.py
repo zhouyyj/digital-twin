@@ -1,4 +1,4 @@
-"""Mirror Image web server — FastAPI front for chat, watering, and sandbox."""
+"""Digital Twin web server — FastAPI front for chat, watering, and sandbox."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from core.state_machine import (
 )
 
 SYSTEM_PROMPT = (
-    "你是我在镜子里的克隆体，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
+    "你是我的数字分身，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
     "你可以调用用户主动浇灌进记忆的日记、文档与图像描述；不要假装看见未被提供的私料。"
 )
 
@@ -112,7 +112,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Mirror Image", lifespan=lifespan)
+app = FastAPI(title="Digital Twin", lifespan=lifespan)
 WEB_DIR = get_project_root() / "web"
 app.mount("/assets", StaticFiles(directory=WEB_DIR), name="assets")
 
@@ -351,6 +351,17 @@ def get_life_path(refresh: bool = False) -> dict[str, Any]:
 def regen_life_path() -> dict[str, Any]:
     rt = _rt()
     return rt.life_path.regenerate(reason="manual", archive=True)
+
+
+class LifePathEdits(BaseModel):
+    positions: dict[str, dict[str, float]] = Field(default_factory=dict)
+    edits: dict[str, dict[str, str]] = Field(default_factory=dict)
+
+
+@app.patch("/api/life-path")
+def patch_life_path(body: LifePathEdits) -> dict[str, Any]:
+    rt = _rt()
+    return rt.life_path.apply_edits(positions=body.positions, edits=body.edits)
 
 
 @app.post("/api/board")

@@ -17,15 +17,23 @@
   const modalOk = document.getElementById("modalOk");
   const pathSvg = document.getElementById("pathSvg");
   const pathSummary = document.getElementById("pathSummary");
-  const pathDetail = document.getElementById("pathDetail");
   const historyList = document.getElementById("historyList");
   const historyCount = document.getElementById("historyCount");
   const regenPathBtn = document.getElementById("regenPathBtn");
+  const resetCamBtn = document.getElementById("resetCamBtn");
+  const inspector = document.getElementById("inspector");
+  const inspectorClose = document.getElementById("inspectorClose");
+  const inspLabel = document.getElementById("inspLabel");
+  const inspDetail = document.getElementById("inspDetail");
+  const inspDeltas = document.getElementById("inspDeltas");
+  const inspHint = document.getElementById("inspHint");
 
   let busy = false;
   let modalMode = null;
   let lifePathData = null;
   let viewingArchive = null;
+  let selectedNode = null;
+  let saveTimer = null;
 
   function errText(data, fallback) {
     if (!data) return fallback;
@@ -54,9 +62,9 @@
       role === "you"
         ? "你"
         : role === "mirror"
-          ? "镜子"
+          ? "分身"
           : role === "alert"
-            ? "镜子轻轻拦住你"
+            ? "分身轻轻拦住你"
             : "旁白";
     div.innerHTML = `<div class="who">${who}</div><div class="body"></div>`;
     div.querySelector(".body").textContent = text;
@@ -86,21 +94,86 @@
   });
 
   function selectNode(n) {
+    selectedNode = n;
+    inspector.hidden = false;
+    inspLabel.value = n.label || "";
+    inspDetail.value = n.detail || "";
+    const readOnly = Boolean(viewingArchive);
+    inspLabel.disabled = readOnly;
+    inspDetail.disabled = readOnly;
     const deltas = [];
-    if (n.capital_delta != null) deltas.push(`capital ${fmtDelta(n.capital_delta)}`);
-    if (n.energy_delta != null) deltas.push(`energy ${fmtDelta(n.energy_delta)}`);
-    if (n.entropy_delta != null) deltas.push(`entropy ${fmtDelta(n.entropy_delta)}`);
-    pathDetail.innerHTML = `
-      <h3>${escapeHtml(n.label || n.id)}</h3>
-      <p>${escapeHtml(n.detail || "（无详细说明）")}</p>
-      ${
-        deltas.length
-          ? `<div class="deltas">${deltas.join(" · ")}</div>`
-          : n.kind === "closed"
-            ? `<div class="deltas">已关闭的岔路</div>`
-            : ""
-      }
-    `;
+    if (n.capital_delta != null) deltas.push(`储备 ${fmtDelta(n.capital_delta)}`);
+    if (n.energy_delta != null) deltas.push(`精力 ${fmtDelta(n.energy_delta)}`);
+    if (n.entropy_delta != null) deltas.push(`混乱 ${fmtDelta(n.entropy_delta)}`);
+    if (n.kind === "closed") deltas.push("已经关上的门");
+    inspDeltas.textContent = deltas.join(" · ");
+    inspHint.textContent = readOnly
+      ? "这是旧地图，只能看看。"
+      : "可以直接改字，也可以拖着节点走。";
+  }
+
+  function closeInspector() {
+    selectedNode = null;
+    inspector.hidden = true;
+  }
+
+  inspectorClose.addEventListener("click", closeInspector);
+
+  function queueEdits() {
+    if (!selectedNode || viewingArchive) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => persistEdits(selectedNode), 450);
+  }
+
+  inspLabel.addEventListener("input", () => {
+    if (!selectedNode) return;
+    selectedNode.label = inspLabel.value;
+    const text = pathSvg.querySelector(`.path-node[data-id="${selectedNode.id}"] text`);
+    if (text) text.textContent = (inspLabel.value || "").slice(0, 12);
+    if (selectedNode.id === "today") {
+      pathSummary.textContent = inspDetail.value || lifePathData?.summary || "";
+    }
+    queueEdits();
+  });
+
+  inspDetail.addEventListener("input", () => {
+    if (!selectedNode) return;
+    selectedNode.detail = inspDetail.value;
+    if (selectedNode.id === "today" && lifePathData) {
+      lifePathData.summary = inspDetail.value;
+      pathSummary.textContent = inspDetail.value;
+    }
+    queueEdits();
+  });
+
+  async function persistEdits(node) {
+    if (!node || viewingArchive) return;
+    try {
+      await fetch("/api/life-path", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          edits: {
+            [node.id]: { label: node.label || "", detail: node.detail || "" },
+          },
+        }),
+      });
+    } catch {
+      /* keep local */
+    }
+  }
+
+  async function persistPositions(payload) {
+    if (viewingArchive) return;
+    try {
+      await fetch("/api/life-path", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      /* keep local */
+    }
   }
 
   function fmtDelta(n) {
@@ -118,6 +191,7 @@
 
   function paintLifePath(data, { archive } = {}) {
     viewingArchive = archive || null;
+    closeInspector();
     const view = archive
       ? {
           ...data,
@@ -125,19 +199,24 @@
           today_label: archive.today_label || data.today_label,
           past: archive.past,
           future: archive.future,
+          today_x: archive.today_x,
+          today_y: archive.today_y,
         }
       : data;
 
     pathSummary.textContent = archive
-      ? `历史快照（${archive.reason}）：${archive.summary || ""}`
+      ? `旧地图：${archive.summary || ""}`
       : view.summary || "—";
 
-    window.MirrorLifePath.render(pathSvg, view, { onSelect: selectNode });
+    window.MirrorLifePath.render(pathSvg, view, {
+      readOnly: Boolean(archive),
+      onSelect: selectNode,
+      onChange: persistPositions,
+    });
     window.MirrorLifePath.renderHistory(historyList, data.history || [], {
       onPick: (h) => paintLifePath(data, { archive: h }),
     });
     historyCount.textContent = String((data.history || []).length);
-    pathDetail.innerHTML = `<h3>点一点路上的地方</h3><p>陶土色是今天，鼠尾草绿是还开着的路，浅褐是已经关上的门。</p>`;
   }
 
   async function loadLifePath() {
@@ -156,14 +235,14 @@
   async function boot() {
     addBubble(
       "system",
-      "把日记或照片放进左边，镜子会重新长出接下来三个月的路。旧的那张地图会收进「人生小路」下面的抽屉里。"
+      "把日记或照片放进左边，分身会重新长出接下来三个月的路。旧的那张地图会收进「人生小路」下面的抽屉里。"
     );
     try {
       const res = await fetch("/api/health");
       const data = await res.json();
       if (!data.ok) {
         healthLine.textContent = data.error || "灯还没亮";
-        addBubble("warn", data.error || "镜子还没醒过来");
+        addBubble("warn", data.error || "分身还没醒过来");
         return;
       }
       healthLine.textContent = "灯亮着，慢慢来";
@@ -174,7 +253,7 @@
       healthLine.textContent = "还连不上";
       addBubble(
         "warn",
-        "镜子还没醒来。在项目目录运行：uvicorn server:app --reload --port 8787"
+        "分身还没醒来。在项目目录运行：uvicorn server:app --reload --port 8787"
       );
     }
   }
@@ -248,11 +327,22 @@
     sendChat(message);
   });
 
+  function growComposer() {
+    promptEl.style.height = "auto";
+    promptEl.style.height = `${Math.min(promptEl.scrollHeight, 160)}px`;
+  }
+  promptEl.addEventListener("input", growComposer);
   promptEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       composer.requestSubmit();
     }
+  });
+  composer.addEventListener("submit", () => {
+    setTimeout(() => {
+      promptEl.style.height = "";
+      growComposer();
+    }, 0);
   });
 
   function applyWaterResult(data, label) {
@@ -347,6 +437,10 @@
     }
   });
 
+  resetCamBtn.addEventListener("click", () => {
+    pathSvg._resetCamera?.();
+  });
+
   regenPathBtn.addEventListener("click", async () => {
     if (busy) return;
     setBusy(true);
@@ -357,7 +451,7 @@
       if (!res.ok) throw new Error(errText(data, "regen failed"));
       lifePathData = data;
       paintLifePath(lifePathData);
-      addBubble("system", "镜子重新想了一遍接下来三个月。上一张地图收进抽屉了。");
+      addBubble("system", "分身重新想了一遍接下来三个月。上一张地图收进抽屉了。");
     } catch (err) {
       addBubble("warn", String(err.message || err));
     } finally {
@@ -397,7 +491,7 @@
     closeModal();
     setBusy(true);
     showView("chat");
-    addBubble("system", mode === "board" ? "镜子在把这件事摊开看看…" : "镜子在按月帮你走一遍…");
+    addBubble("system", mode === "board" ? "分身在把这件事摊开看看…" : "分身在按月帮你走一遍…");
     try {
       const res = await fetch(mode === "board" ? "/api/board" : "/api/simulate", {
         method: "POST",

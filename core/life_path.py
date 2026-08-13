@@ -264,7 +264,7 @@ class LifePathEngine:
             past = self._fold_future_into_past(past, current.get("future") or {})
 
         prompt = (
-            "你是 Mirror Image 的人生路径绘图引擎。根据用户记忆与物理状态，"
+            "你是 Digital Twin 的人生路径绘图引擎。根据用户记忆与物理状态，"
             "输出接下来 3 个月的重要节点分叉图（JSON only）。\n"
             "结构必须严格为：\n"
             "{\n"
@@ -376,6 +376,54 @@ class LifePathEngine:
                 )
         # Cap sizes
         return {"trunk": trunk[-6:], "closed": closed[-10:]}
+
+    def apply_edits(
+        self,
+        *,
+        positions: dict[str, dict[str, float]] | None = None,
+        edits: dict[str, dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        data = self.load_or_seed()
+        positions = positions or {}
+        edits = edits or {}
+
+        def visit(node: dict[str, Any]) -> None:
+            nid = str(node.get("id", ""))
+            if not nid:
+                return
+            if nid in positions:
+                pos = positions[nid]
+                if "x" in pos and "y" in pos:
+                    node["x"] = float(pos["x"])
+                    node["y"] = float(pos["y"])
+            if nid in edits:
+                if "label" in edits[nid] and edits[nid]["label"] is not None:
+                    node["label"] = str(edits[nid]["label"]).strip()[:40]
+                if "detail" in edits[nid] and edits[nid]["detail"] is not None:
+                    node["detail"] = str(edits[nid]["detail"]).strip()[:800]
+
+        if "today" in positions:
+            pos = positions["today"]
+            if "x" in pos and "y" in pos:
+                data["today_x"] = float(pos["x"])
+                data["today_y"] = float(pos["y"])
+        if "today" in edits:
+            if edits["today"].get("label"):
+                data["today_label"] = str(edits["today"]["label"]).strip()[:40]
+            if "detail" in edits["today"] and edits["today"]["detail"] is not None:
+                data["summary"] = str(edits["today"]["detail"]).strip()[:800]
+
+        past = data.setdefault("past", {})
+        for node in past.get("trunk") or []:
+            visit(node)
+        for node in past.get("closed") or []:
+            visit(node)
+        for month in (data.get("future") or {}).get("months") or []:
+            for node in month.get("nodes") or []:
+                visit(node)
+
+        self.save(data)
+        return data
 
     def _normalize(self, data: dict[str, Any]) -> None:
         past = data.setdefault("past", {})

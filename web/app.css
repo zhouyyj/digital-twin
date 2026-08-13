@@ -300,8 +300,9 @@ input:focus {
 }
 
 .view-paths {
-  grid-template-rows: auto auto minmax(220px, 1fr) auto auto;
+  grid-template-rows: auto 1fr auto;
   background: linear-gradient(180deg, rgba(250, 246, 240, 0.4), transparent 30%);
+  min-height: 0;
 }
 
 .tabs {
@@ -345,95 +346,113 @@ input:focus {
 .path-actions {
   display: flex;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding: 0.6rem 1.4rem;
-  border-bottom: 1px solid var(--line);
+.path-hint {
+  margin-top: 0.25rem;
   font-size: 0.78rem;
   color: var(--muted);
 }
 
-.legend .swatch {
-  display: inline-block;
-  width: 0.75rem;
-  height: 0.75rem;
-  margin-right: 0.35rem;
-  vertical-align: -0.08rem;
-  border-radius: 999px;
-  border: 1px solid transparent;
-}
-
-.legend .swatch.closed {
-  background: var(--closed);
-}
-
-.legend .swatch.open {
-  background: var(--sage);
-}
-
-.legend .swatch.today {
-  background: var(--terracotta);
-}
-
-.path-canvas-wrap {
-  overflow: auto;
-  padding: 0.75rem 1rem 0;
+.path-workspace {
+  position: relative;
   min-height: 0;
+  margin: 0.7rem 1rem 0.4rem;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  background:
+    radial-gradient(ellipse at 40% 50%, rgba(255, 255, 255, 0.55), transparent 60%),
+    #f7f0e6;
 }
 
 #pathSvg {
   width: 100%;
-  height: min(48vh, 440px);
+  height: 100%;
   display: block;
-  background:
-    radial-gradient(ellipse at 40% 50%, rgba(255, 255, 255, 0.55), transparent 60%),
-    #f7f0e6;
-  border-radius: 20px;
+  min-height: 280px;
+}
+
+.inspector {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: min(280px, calc(100% - 2rem));
+  background: rgba(250, 246, 240, 0.96);
   border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1rem 1rem 0.9rem;
   box-shadow: var(--shadow);
+  display: grid;
+  gap: 0.65rem;
 }
 
-.path-detail {
-  padding: 0.95rem 1.4rem;
-  border-bottom: 1px solid var(--line);
-  min-height: 4.5rem;
+.inspector[hidden] {
+  display: none;
 }
 
-.path-detail h3 {
-  font-family: var(--serif);
-  font-size: 1.15rem;
-  font-weight: 650;
-  margin-bottom: 0.3rem;
+.inspector-close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.55rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
 }
 
-.path-detail p {
-  color: var(--ink-soft);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
-
-.path-detail .deltas {
-  margin-top: 0.45rem;
+.inspector label {
+  display: grid;
+  gap: 0.3rem;
   font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.inspector input,
+.inspector textarea {
+  font-size: 0.92rem;
+}
+
+.insp-deltas,
+.insp-hint {
+  font-size: 0.75rem;
   color: var(--sage-deep);
 }
 
-.history-panel {
-  padding: 0.85rem 1.4rem 1.1rem;
-  max-height: 160px;
+.insp-hint {
+  color: var(--muted);
+}
+
+.history-drawer {
+  margin: 0 1rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(250, 246, 240, 0.7);
+  max-height: 28vh;
   overflow: auto;
 }
 
-.history-head {
+.history-drawer summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.7rem 1rem;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.55rem;
-  font-size: 0.78rem;
-  color: var(--muted);
+  align-items: center;
+  font-family: var(--serif);
+  color: var(--ink);
+}
+
+.history-drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.history-drawer .history-list {
+  padding: 0 0.85rem 0.85rem;
 }
 
 .history-list {
@@ -483,10 +502,18 @@ input:focus {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.05rem 1.4rem 0.9rem;
+  padding: 0.85rem 1.4rem 0.75rem;
   border-bottom: 1px solid var(--line);
   font-size: 0.86rem;
   color: var(--muted);
+}
+
+.paths-head .path-summary {
+  max-width: 36rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .sys {
@@ -581,8 +608,9 @@ input:focus {
 }
 
 .composer textarea {
-  min-height: 3.2rem;
-  max-height: 9rem;
+  min-height: 3.4rem;
+  max-height: 10rem;
+  overflow-y: auto;
 }
 
 .overlay {

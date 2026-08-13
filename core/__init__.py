@@ -1,1 +1,1 @@
-"""Mirror Image core package."""
+"""Digital Twin core package."""

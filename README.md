@@ -1,6 +1,6 @@
-# Mirror Image
+# Digital Twin
 
-Geek-flavored digital twin and cognitive sandbox: a restrained mirror persona, long-term episodic memory you *water* with personal artifacts, a hard physical state machine, multi-agent board debates, and stepped monthly sims.
+A local digital avatar: a restrained persona, long-term memory you *water* with personal artifacts, a physical state machine, board debates, and a three-month life-path map.
 
 Use it from the **terminal** or the **local website** (drag-and-drop watering + streamed chat).
 
@@ -23,9 +23,9 @@ uvicorn server:app --reload --port 8787
 Open [http://127.0.0.1:8787](http://127.0.0.1:8787)
 
 - Drag diaries / PDFs / images onto **浇灌**
-- Chat in the **会话** tab
-- Open **人生路径** for a Wait-But-Why-style past / TODAY / 3-month future tree (regenerates after watering; old trees stay in history)
-- `/board` and `/simulate` from the side rail
+- Chat in **聊聊**
+- Open **人生小路** for a past / today / 3-month future tree (regenerates after watering; old trees stay in history)
+- Drag nodes to rearrange; click a node to edit it
 
 ### Terminal CLI
 
@@ -46,7 +46,7 @@ python main.py
 
 ## CLI commands
 
-- Chat normally — mirror persona streams back
+- Chat normally — the twin streams back
 - `/state` — capital / energy / entropy_rate
 - `/memory` — how many events are in the local store
 - `/board [困境]` — three-director debate with memory citations

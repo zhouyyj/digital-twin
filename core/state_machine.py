@@ -1,4 +1,4 @@
-"""Persistent physical state + deduction JSON parsing for Mirror Image."""
+"""Persistent physical state + deduction JSON parsing for Digital Twin."""
 
 from __future__ import annotations
 
