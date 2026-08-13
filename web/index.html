@@ -1,10 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-Hans">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Digital Twin</title>
-  <meta name="description" content="数字分身：浇灌日记与影像，看看接下来三个月的路。" />
+  <meta
+    name="description"
+    content="Digital Twin: water it with diaries and photos, then walk the next three months."
+  />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -17,21 +20,26 @@
   <div class="shell">
     <aside class="rail">
       <div class="brand-block">
-        <p class="brand-kicker">数字分身</p>
+        <p class="brand-kicker" data-i18n="kicker">Digital avatar</p>
         <h1 class="brand">Digital Twin</h1>
-        <p class="brand-sub">慢慢浇灌，路会自己长出来。</p>
+        <p class="brand-sub" data-i18n="brandSub">Feed it slowly. The path grows on its own.</p>
+      </div>
+
+      <div class="lang-switch" role="group" aria-label="Language">
+        <button type="button" class="lang-btn active" data-lang="en">EN</button>
+        <button type="button" class="lang-btn" data-lang="zh">中文</button>
       </div>
 
       <nav class="tabs" role="tablist">
-        <button type="button" class="tab active" data-view="chat" role="tab">聊聊</button>
-        <button type="button" class="tab" data-view="paths" role="tab">人生小路</button>
+        <button type="button" class="tab active" data-view="chat" role="tab" data-i18n="tabChat">Chat</button>
+        <button type="button" class="tab" data-view="paths" role="tab" data-i18n="tabPaths">Life path</button>
       </nav>
 
       <div class="meters" id="meters">
-        <div class="meter"><span>储备</span><strong id="m-capital">—</strong></div>
-        <div class="meter"><span>精力</span><strong id="m-energy">—</strong></div>
-        <div class="meter"><span>混乱</span><strong id="m-entropy">—</strong></div>
-        <div class="meter"><span>记忆</span><strong id="m-memory">—</strong></div>
+        <div class="meter"><span data-i18n="meterCapital">Reserve</span><strong id="m-capital">—</strong></div>
+        <div class="meter"><span data-i18n="meterEnergy">Energy</span><strong id="m-energy">—</strong></div>
+        <div class="meter"><span data-i18n="meterEntropy">Chaos</span><strong id="m-entropy">—</strong></div>
+        <div class="meter"><span data-i18n="meterMemory">Memory</span><strong id="m-memory">—</strong></div>
       </div>
 
       <div
@@ -39,35 +47,39 @@
         id="drop"
         tabindex="0"
         role="button"
-        aria-label="拖放文件以浇灌记忆"
+        data-i18n-aria="dropAria"
+        aria-label="Drop files to water memory"
       >
         <div class="drop-ripple" aria-hidden="true"></div>
-        <h2>浇一杯记忆</h2>
-        <p>把日记、照片或文档轻轻放进来。<br />分身会重新长出未来三个月的路，旧的那张会收进抽屉。</p>
+        <h2 data-i18n="dropTitle">Water a memory</h2>
+        <p data-i18n="dropBody" data-i18n-mode="html">
+          Drop in a diary, photo, or document.<br />The twin will grow a new three-month path; the old map goes in the drawer.
+        </p>
         <input id="fileInput" type="file" multiple hidden />
-        <div class="drop-status" id="dropStatus">等你带来一点生活</div>
+        <div class="drop-status" id="dropStatus" data-i18n="dropWaiting">Waiting for a piece of your life</div>
       </div>
 
-      <label class="note-label" for="noteInput">随手写一句</label>
+      <label class="note-label" for="noteInput" data-i18n="noteLabel">A quick line</label>
       <textarea
         id="noteInput"
         rows="3"
-        placeholder="今天发生了什么… ⌘/Ctrl + Enter 送进去"
+        data-i18n-placeholder="notePlaceholder"
+        placeholder="What happened today… ⌘/Ctrl + Enter to save"
       ></textarea>
-      <button type="button" class="btn btn-ghost" id="noteBtn">写入记忆</button>
+      <button type="button" class="btn btn-ghost" id="noteBtn" data-i18n="noteBtn">Write to memory</button>
 
       <div class="tool-row">
-        <button type="button" class="btn btn-ghost" id="boardBtn">问一问</button>
-        <button type="button" class="btn btn-ghost" id="simBtn">走一段</button>
+        <button type="button" class="btn btn-ghost" id="boardBtn" data-i18n="boardBtn">Ask around</button>
+        <button type="button" class="btn btn-ghost" id="simBtn" data-i18n="simBtn">Walk a path</button>
       </div>
 
-      <p class="rail-foot" id="healthLine">正在点灯…</p>
+      <p class="rail-foot" id="healthLine" data-i18n="healthConnecting">Lighting the lamp…</p>
     </aside>
 
     <main class="stage">
       <section class="view view-chat" id="view-chat">
         <header class="stage-head">
-          <span class="sys">和分身坐一会儿</span>
+          <span class="sys" data-i18n="chatTitle">Sit with the twin</span>
           <span class="sys dim" id="modelLine"></span>
         </header>
         <div class="log" id="log" aria-live="polite"></div>
@@ -75,45 +87,46 @@
           <textarea
             id="prompt"
             rows="1"
-            placeholder="想说什么就说… Enter 送出，Shift+Enter 换行。提到「推演」或「做选择」时会认真算消耗"
+            data-i18n-placeholder="chatPlaceholder"
+            placeholder="Say whatever’s on your mind… Enter to send, Shift+Enter for a new line."
             required
           ></textarea>
-          <button class="btn" type="submit" id="sendBtn">送出</button>
+          <button class="btn" type="submit" id="sendBtn" data-i18n="send">Send</button>
         </form>
       </section>
 
       <section class="view view-paths hidden" id="view-paths">
         <header class="stage-head paths-head">
           <div>
-            <span class="sys">接下来三个月</span>
-            <p class="path-summary" id="pathSummary">正在铺开小路…</p>
-            <p class="path-hint">拖节点改位置 · 空白处拖动画布 · 滚轮缩放</p>
+            <span class="sys" data-i18n="pathsTitle">The next three months</span>
+            <p class="path-summary" id="pathSummary" data-i18n="pathsLoading">Laying out the path…</p>
+            <p class="path-hint" data-i18n="pathsHint">Drag nodes · pan the blank space · scroll to zoom</p>
           </div>
           <div class="path-actions">
-            <button type="button" class="btn btn-ghost" id="resetCamBtn">回到中心</button>
-            <button type="button" class="btn btn-ghost" id="regenPathBtn">重新想想</button>
+            <button type="button" class="btn btn-ghost" id="resetCamBtn" data-i18n="resetCam">Center</button>
+            <button type="button" class="btn btn-ghost" id="regenPathBtn" data-i18n="regen">Think again</button>
           </div>
         </header>
 
         <div class="path-workspace">
-          <svg id="pathSvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="人生路径图"></svg>
+          <svg id="pathSvg" xmlns="http://www.w3.org/2000/svg" role="img" data-i18n-aria="pathMapAria" aria-label="Life path map"></svg>
 
           <aside class="inspector" id="inspector" hidden>
-            <button type="button" class="inspector-close" id="inspectorClose" aria-label="关闭">×</button>
-            <label>名字
+            <button type="button" class="inspector-close" id="inspectorClose" data-i18n-aria="close" aria-label="Close">×</button>
+            <label><span data-i18n="inspName">Name</span>
               <input id="inspLabel" maxlength="40" />
             </label>
-            <label>这句话
+            <label><span data-i18n="inspNote">This line</span>
               <textarea id="inspDetail" rows="4" maxlength="800"></textarea>
             </label>
             <p class="insp-deltas" id="inspDeltas"></p>
-            <p class="insp-hint" id="inspHint">改完会自动记住。</p>
+            <p class="insp-hint" id="inspHint" data-i18n="inspHintEdit">Edits save on their own. You can also drag the node.</p>
           </aside>
         </div>
 
         <details class="history-drawer" id="historyDrawer">
           <summary>
-            以前的地图
+            <span data-i18n="historyTitle">Earlier maps</span>
             <span class="sys dim" id="historyCount">0</span>
           </summary>
           <div class="history-list" id="historyList"></div>
@@ -124,15 +137,16 @@
 
   <div class="overlay hidden" id="overlay" aria-hidden="true">
     <div class="modal">
-      <h3 id="modalTitle">想一想</h3>
+      <h3 id="modalTitle">Think</h3>
       <textarea id="modalInput" rows="4"></textarea>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="modalCancel">先算了</button>
-        <button type="button" class="btn" id="modalOk">开始</button>
+        <button type="button" class="btn btn-ghost" id="modalCancel" data-i18n="modalCancel">Not now</button>
+        <button type="button" class="btn" id="modalOk" data-i18n="modalOk">Begin</button>
       </div>
     </div>
   </div>
 
+  <script src="/assets/i18n.js"></script>
   <script src="/assets/life-path.js"></script>
   <script src="/assets/app.js"></script>
 </body>

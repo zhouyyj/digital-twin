@@ -20,7 +20,7 @@ window.MirrorLifePath = (() => {
     return { w: 102, h: 36 };
   }
 
-  function layout(data) {
+  function layout(data, labels = {}) {
     const trunk = data?.past?.trunk || [];
     const closed = data?.past?.closed || [];
     const months = data?.future?.months || [];
@@ -46,7 +46,7 @@ window.MirrorLifePath = (() => {
 
     const today = {
       id: "today",
-      label: data?.today_label || "你的人生 · 今天",
+      label: data?.today_label || (typeof labels?.todayFallback === "string" ? labels.todayFallback : "Your life · today"),
       detail: data?.summary || "",
       kind: "today",
       x: todayX,
@@ -127,11 +127,11 @@ window.MirrorLifePath = (() => {
     return `M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`;
   }
 
-  function render(svg, data, { onSelect, onChange, readOnly = false } = {}) {
+  function render(svg, data, { onSelect, onChange, readOnly = false, labels = {} } = {}) {
     if (svg._cleanup) svg._cleanup();
     while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-    const L = layout(data);
+    const L = layout(data, labels);
     const byId = L.positions;
     const camera = svg._camera || { x: 0, y: 0, k: 1 };
     svg._camera = camera;
@@ -181,7 +181,7 @@ window.MirrorLifePath = (() => {
         "text-anchor": "middle",
         "font-family": FONT,
         "font-size": 13,
-      }, "今天")
+      }, labels.today || "today")
     );
     world.appendChild(
       el("text", {
@@ -190,7 +190,7 @@ window.MirrorLifePath = (() => {
         fill: LABEL,
         "font-family": FONT,
         "font-size": 13,
-      }, "← 走过的路")
+      }, labels.past || "← the path taken")
     );
     world.appendChild(
       el("text", {
@@ -200,7 +200,7 @@ window.MirrorLifePath = (() => {
         "text-anchor": "end",
         "font-family": FONT,
         "font-size": 13,
-      }, "还可能去的地方 →")
+      }, labels.future || "places still open →")
     );
 
     L.months.forEach((month) => {
@@ -216,7 +216,7 @@ window.MirrorLifePath = (() => {
           "text-anchor": "middle",
           "font-family": FONT,
           "font-size": 13,
-        }, month.label || `第 ${month.month} 月`)
+        }, month.label || (labels.month ? labels.month(month.month) : `Month ${month.month}`))
       );
     });
 
@@ -439,10 +439,12 @@ window.MirrorLifePath = (() => {
     return { highlight, byId };
   }
 
-  function renderHistory(listEl, history, { onPick } = {}) {
+  function renderHistory(listEl, history, { onPick, labels = {} } = {}) {
     listEl.innerHTML = "";
     if (!history?.length) {
-      listEl.innerHTML = `<p class="history-empty">抽屉还是空的。浇进一点生活之后，旧地图会收在这里。</p>`;
+      listEl.innerHTML = `<p class="history-empty">${
+        labels.historyEmpty || "The drawer is empty."
+      }</p>`;
       return;
     }
     [...history].reverse().forEach((h) => {
@@ -451,12 +453,12 @@ window.MirrorLifePath = (() => {
       btn.className = "history-item";
       const when = (h.archived_at || "").replace("T", " ").slice(0, 19);
       const reasonMap = {
-        "water:note": "写了一句日记",
-        "water:upload": "放进了文件",
-        manual: "重新想了一遍",
-        boot: "刚醒来的样子",
+        "water:note": labels.historyReasonNote || "Wrote a diary line",
+        "water:upload": labels.historyReasonUpload || "Added files",
+        manual: labels.historyReasonManual || "Thought it through again",
+        boot: labels.historyReasonBoot || "How it first woke",
       };
-      const reason = reasonMap[h.reason] || h.reason || "旧地图";
+      const reason = reasonMap[h.reason] || h.reason || labels.historyReasonFallback || "Old map";
       btn.innerHTML = `<strong>${reason}</strong><span>${when}</span><em>${
         h.summary || ""
       }</em>`;

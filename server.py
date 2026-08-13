@@ -11,7 +11,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
@@ -74,10 +74,10 @@ class AppRuntime:
         self.upload_dir = get_project_root() / ".uploads"
         self.upload_dir.mkdir(parents=True, exist_ok=True)
 
-    def after_water(self, reason: str) -> dict[str, Any]:
+    def after_water(self, reason: str, lang: str = "en") -> dict[str, Any]:
         """Archive current future into history and grow a new 3-month tree."""
         try:
-            return self.life_path.regenerate(reason=reason, archive=True)
+            return self.life_path.regenerate(reason=reason, archive=True, lang=lang)
         except Exception as exc:
             data = self.life_path.load_or_seed()
             data["regen_error"] = str(exc)
@@ -115,6 +115,17 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Digital Twin", lifespan=lifespan)
 WEB_DIR = get_project_root() / "web"
 app.mount("/assets", StaticFiles(directory=WEB_DIR), name="assets")
+
+
+def _ui_lang(request: Request) -> str:
+    raw = (request.headers.get("x-ui-lang") or "en").lower()
+    return "zh" if raw.startswith("zh") else "en"
+
+
+def _lang_instruction(lang: str) -> str:
+    if lang == "zh":
+        return "用中文回复，除非用户改用其他语言。"
+    return "Reply in English unless the user writes in another language."
 
 
 def _rt() -> AppRuntime:
@@ -184,8 +195,9 @@ def get_state() -> dict[str, Any]:
 
 
 @app.post("/api/chat")
-async def chat(body: ChatIn) -> StreamingResponse:
+async def chat(request: Request, body: ChatIn) -> StreamingResponse:
     rt = _rt()
+    lang = _ui_lang(request)
     user_line = body.message.strip()
     if not user_line:
         raise HTTPException(status_code=400, detail="Empty message")
@@ -194,7 +206,11 @@ async def chat(body: ChatIn) -> StreamingResponse:
     user_for_model = _memory_augmented(user_line, rt.memory)
     if deduction_mode:
         user_for_model = user_for_model + "\n\n" + deduction_instruction_block(rt.state)
-    turn_messages = [*rt.messages, {"role": "user", "content": user_for_model}]
+    system = {
+        "role": "system",
+        "content": rt.messages[0]["content"] + "\n" + _lang_instruction(lang),
+    }
+    turn_messages = [system, *rt.messages[1:], {"role": "user", "content": user_for_model}]
 
     async def gen() -> AsyncIterator[str]:
         try:
@@ -270,10 +286,10 @@ async def chat(body: ChatIn) -> StreamingResponse:
 
 
 @app.post("/api/water/note")
-def water_note(body: NoteIn) -> dict[str, Any]:
+def water_note(request: Request, body: NoteIn) -> dict[str, Any]:
     rt = _rt()
     results = rt.feeder.water(f"note: {body.note.strip()}")
-    life = rt.after_water("water:note")
+    life = rt.after_water("water:note", lang=_ui_lang(request))
     return {
         "ok": True,
         "results": [_result_dict(r) for r in results],
@@ -283,7 +299,9 @@ def water_note(body: NoteIn) -> dict[str, Any]:
 
 
 @app.post("/api/water/upload")
-async def water_upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
+async def water_upload(
+    request: Request, files: list[UploadFile] = File(...)
+) -> dict[str, Any]:
     rt = _rt()
     if not files:
         raise HTTPException(status_code=400, detail="No files")
@@ -318,7 +336,7 @@ async def water_upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
         for path in saved:
             all_results.extend(rt.feeder.water(str(path)))
 
-        life = rt.after_water("water:upload")
+        life = rt.after_water("water:upload", lang=_ui_lang(request))
         return {
             "ok": True,
             "results": [_result_dict(r) for r in all_results],
@@ -334,23 +352,26 @@ async def water_upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
 
 
 @app.get("/api/life-path")
-def get_life_path(refresh: bool = False) -> dict[str, Any]:
+def get_life_path(request: Request, refresh: bool = False) -> dict[str, Any]:
     rt = _rt()
+    lang = _ui_lang(request)
     if refresh:
-        return rt.life_path.regenerate(reason="manual", archive=True)
+        return rt.life_path.regenerate(reason="manual", archive=True, lang=lang)
     data = rt.life_path.load_or_seed()
     if data.get("trigger") == "seed":
         try:
-            return rt.life_path.regenerate(reason="boot", archive=False)
+            return rt.life_path.regenerate(reason="boot", archive=False, lang=lang)
         except Exception:
             return data
     return data
 
 
 @app.post("/api/life-path/regenerate")
-def regen_life_path() -> dict[str, Any]:
+def regen_life_path(request: Request) -> dict[str, Any]:
     rt = _rt()
-    return rt.life_path.regenerate(reason="manual", archive=True)
+    return rt.life_path.regenerate(
+        reason="manual", archive=True, lang=_ui_lang(request)
+    )
 
 
 class LifePathEdits(BaseModel):
@@ -365,22 +386,28 @@ def patch_life_path(body: LifePathEdits) -> dict[str, Any]:
 
 
 @app.post("/api/board")
-def board(body: BoardIn) -> dict[str, Any]:
+def board(request: Request, body: BoardIn) -> dict[str, Any]:
     rt = _rt()
     rt.take_capture()
+    dilemma = body.dilemma.strip()
+    if _ui_lang(request) == "en":
+        dilemma += "\n\nWrite all output in English."
     try:
-        rt.sandbox.run_board(body.dilemma.strip())
+        rt.sandbox.run_board(dilemma)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"ok": True, "output": rt.take_capture(), "state": asdict(rt.state)}
 
 
 @app.post("/api/simulate")
-def simulate(body: SimulateIn) -> dict[str, Any]:
+def simulate(request: Request, body: SimulateIn) -> dict[str, Any]:
     rt = _rt()
     rt.take_capture()
+    choice = body.choice.strip()
+    if _ui_lang(request) == "en":
+        choice += "\n\nWrite all output in English."
     try:
-        rt.sandbox.run_simulate(body.choice.strip())
+        rt.sandbox.run_simulate(choice)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {

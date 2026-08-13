@@ -31,8 +31,8 @@ def _default_seed(state: UserState) -> dict[str, Any]:
         "version": 1,
         "generated_at": _now_iso(),
         "trigger": "seed",
-        "summary": "默认三月路径：在浇灌私料之前，镜子先给出可分叉的重要节点骨架。",
-        "today_label": "你的人生 · 今天",
+        "summary": "A default three-month path: before any watering, the twin lays out forks you can still take.",
+        "today_label": "Your life · today",
         "state_snapshot": {
             "capital": state.capital,
             "energy": state.energy,
@@ -40,25 +40,25 @@ def _default_seed(state: UserState) -> dict[str, Any]:
         },
         "past": {
             "trunk": [
-                {"id": "born", "label": "起点", "detail": "镜子苏醒之前的空白页。"},
+                {"id": "born", "label": "Beginning", "detail": "A blank page, before the twin woke."},
                 {
                     "id": "awaken",
-                    "label": "接通孪生",
-                    "detail": "本地记忆与状态机上线；尚未浇灌私料。",
+                    "label": "Twin online",
+                    "detail": "Local memory and the state machine are up; nothing personal has been poured in yet.",
                 },
             ],
             "closed": [
                 {
                     "id": "closed_ignore",
                     "from": "awaken",
-                    "label": "从不喂养",
-                    "detail": "让孪生停在空壳——已关闭。",
+                    "label": "Never feed it",
+                    "detail": "Leave the twin hollow — closed.",
                 },
                 {
                     "id": "closed_outsource",
                     "from": "awaken",
-                    "label": "把决定外包给热闹",
-                    "detail": "用忙碌替代选择——已关闭。",
+                    "label": "Outsource the choice",
+                    "detail": "Let busyness stand in for a decision — closed.",
                 },
             ],
         },
@@ -66,20 +66,20 @@ def _default_seed(state: UserState) -> dict[str, Any]:
             "months": [
                 {
                     "month": 1,
-                    "label": "第 1 月",
+                    "label": "Month 1",
                     "nodes": [
                         {
                             "id": "m1_focus",
-                            "label": "收束注意力",
-                            "detail": "把散落的念头收成一张可执行的短清单。",
+                            "label": "Gather attention",
+                            "detail": "Fold scattered thoughts into a short list you can actually do.",
                             "capital_delta": -2,
                             "energy_delta": -8,
                             "entropy_delta": -0.02,
                         },
                         {
                             "id": "m1_drift",
-                            "label": "继续漂",
-                            "detail": "维持现状，熵慢慢爬升。",
+                            "label": "Keep drifting",
+                            "detail": "Stay as you are; chaos climbs slowly.",
                             "capital_delta": 0,
                             "energy_delta": -3,
                             "entropy_delta": 0.04,
@@ -88,12 +88,12 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                 },
                 {
                     "month": 2,
-                    "label": "第 2 月",
+                    "label": "Month 2",
                     "nodes": [
                         {
                             "id": "m2_commit",
-                            "label": "押一个方向",
-                            "detail": "对清单里的一项做不可逆的小承诺。",
+                            "label": "Pick a direction",
+                            "detail": "Make a small, hard-to-undo promise to one item on the list.",
                             "parent": "m1_focus",
                             "capital_delta": -10,
                             "energy_delta": -12,
@@ -101,8 +101,8 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                         },
                         {
                             "id": "m2_hedge",
-                            "label": "两边都留",
-                            "detail": "保留退路，进度变慢。",
+                            "label": "Keep both doors",
+                            "detail": "Leave an exit; progress slows.",
                             "parent": "m1_focus",
                             "capital_delta": -4,
                             "energy_delta": -6,
@@ -110,8 +110,8 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                         },
                         {
                             "id": "m2_stall",
-                            "label": "卡在等待",
-                            "detail": "等一个不会自己到来的信号。",
+                            "label": "Stuck waiting",
+                            "detail": "Wait for a signal that will not arrive on its own.",
                             "parent": "m1_drift",
                             "capital_delta": -1,
                             "energy_delta": -5,
@@ -121,12 +121,12 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                 },
                 {
                     "month": 3,
-                    "label": "第 3 月",
+                    "label": "Month 3",
                     "nodes": [
                         {
                             "id": "m3_proof",
-                            "label": "交出证据",
-                            "detail": "用一件可展示的结果证明方向成立。",
+                            "label": "Show proof",
+                            "detail": "Make one visible result that the direction holds.",
                             "parent": "m2_commit",
                             "capital_delta": 5,
                             "energy_delta": -10,
@@ -134,8 +134,8 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                         },
                         {
                             "id": "m3_rethink",
-                            "label": "回头改写",
-                            "detail": "承认对冲失败，重开第 1 月的分叉。",
+                            "label": "Rewrite it",
+                            "detail": "Admit the hedge failed; reopen month 1’s fork.",
                             "parent": "m2_hedge",
                             "capital_delta": -6,
                             "energy_delta": -9,
@@ -143,8 +143,8 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                         },
                         {
                             "id": "m3_fade",
-                            "label": "静音退出",
-                            "detail": "话题从生活里消失，但消耗已经发生。",
+                            "label": "Quiet exit",
+                            "detail": "The topic leaves your life; the cost has already landed.",
                             "parent": "m2_stall",
                             "capital_delta": -2,
                             "energy_delta": -4,
@@ -224,7 +224,7 @@ class LifePathEngine:
                 return data
         return data
 
-    def regenerate(self, *, reason: str, archive: bool = True) -> dict[str, Any]:
+    def regenerate(self, *, reason: str, archive: bool = True, lang: str = "en") -> dict[str, Any]:
         current = self.load_or_seed()
         history = list(current.get("history") or [])
         if archive and current.get("trigger") != "seed":
@@ -263,9 +263,20 @@ class LifePathEngine:
         if archive and current.get("trigger") != "seed":
             past = self._fold_future_into_past(past, current.get("future") or {})
 
+        lang_line = (
+            "所有 summary、label、detail 用中文。"
+            if lang == "zh"
+            else "Write every summary, label, and detail in English."
+        )
+        json_sys = (
+            "只输出合法 JSON。不要 Markdown 说明。语言用中文。"
+            if lang == "zh"
+            else "Output valid JSON only. No markdown commentary. All strings in English."
+        )
         prompt = (
-            "你是 Digital Twin 的人生路径绘图引擎。根据用户记忆与物理状态，"
-            "输出接下来 3 个月的重要节点分叉图（JSON only）。\n"
+            "You are Digital Twin's life-path cartographer. From the user's memory and physical state, "
+            "output a branching map of important nodes for the next 3 months (JSON only).\n"
+            f"{lang_line}\n"
             "结构必须严格为：\n"
             "{\n"
             '  "summary": "一句话总览",\n'
@@ -308,7 +319,7 @@ class LifePathEngine:
             messages=[
                 {
                     "role": "system",
-                    "content": "只输出合法 JSON。不要 Markdown 说明。语言用中文。",
+                    "content": json_sys,
                 },
                 {"role": "user", "content": prompt},
             ],

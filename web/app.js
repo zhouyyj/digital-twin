@@ -1,4 +1,12 @@
 (() => {
+  const i18n = window.TwinI18n;
+  i18n.init();
+  const t = (...args) => i18n.t(...args);
+
+  function apiHeaders(extra = {}) {
+    return { "X-UI-Lang": i18n.current(), ...extra };
+  }
+
   const logEl = document.getElementById("log");
   const composer = document.getElementById("composer");
   const promptEl = document.getElementById("prompt");
@@ -34,6 +42,7 @@
   let viewingArchive = null;
   let selectedNode = null;
   let saveTimer = null;
+  let healthKey = "healthConnecting";
 
   function errText(data, fallback) {
     if (!data) return fallback;
@@ -60,12 +69,12 @@
     div.className = `bubble ${role}`;
     const who =
       role === "you"
-        ? "你"
+        ? t("whoYou")
         : role === "mirror"
-          ? "分身"
+          ? t("whoTwin")
           : role === "alert"
-            ? "分身轻轻拦住你"
-            : "旁白";
+            ? t("whoAlert")
+            : t("whoSystem");
     div.innerHTML = `<div class="who">${who}</div><div class="body"></div>`;
     div.querySelector(".body").textContent = text;
     logEl.appendChild(div);
@@ -102,14 +111,12 @@
     inspLabel.disabled = readOnly;
     inspDetail.disabled = readOnly;
     const deltas = [];
-    if (n.capital_delta != null) deltas.push(`储备 ${fmtDelta(n.capital_delta)}`);
-    if (n.energy_delta != null) deltas.push(`精力 ${fmtDelta(n.energy_delta)}`);
-    if (n.entropy_delta != null) deltas.push(`混乱 ${fmtDelta(n.entropy_delta)}`);
-    if (n.kind === "closed") deltas.push("已经关上的门");
+    if (n.capital_delta != null) deltas.push(`${t("deltaCapital")} ${fmtDelta(n.capital_delta)}`);
+    if (n.energy_delta != null) deltas.push(`${t("deltaEnergy")} ${fmtDelta(n.energy_delta)}`);
+    if (n.entropy_delta != null) deltas.push(`${t("deltaEntropy")} ${fmtDelta(n.entropy_delta)}`);
+    if (n.kind === "closed") deltas.push(t("inspClosed"));
     inspDeltas.textContent = deltas.join(" · ");
-    inspHint.textContent = readOnly
-      ? "这是旧地图，只能看看。"
-      : "可以直接改字，也可以拖着节点走。";
+    inspHint.textContent = readOnly ? t("inspHintArchive") : t("inspHintEdit");
   }
 
   function closeInspector() {
@@ -151,7 +158,7 @@
     try {
       await fetch("/api/life-path", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           edits: {
             [node.id]: { label: node.label || "", detail: node.detail || "" },
@@ -168,7 +175,7 @@
     try {
       await fetch("/api/life-path", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
     } catch {
@@ -205,56 +212,69 @@
       : data;
 
     pathSummary.textContent = archive
-      ? `旧地图：${archive.summary || ""}`
+      ? `${t("historyArchive")}${archive.summary || ""}`
       : view.summary || "—";
+
+    const pathLabels = {
+      today: t("today"),
+      past: t("past"),
+      future: t("future"),
+      month: (n) => t("month", n),
+      todayFallback: t("todayFallback"),
+      historyEmpty: t("historyEmpty"),
+      historyReasonNote: t("historyReasonNote"),
+      historyReasonUpload: t("historyReasonUpload"),
+      historyReasonManual: t("historyReasonManual"),
+      historyReasonBoot: t("historyReasonBoot"),
+      historyReasonFallback: t("historyReasonFallback"),
+    };
 
     window.MirrorLifePath.render(pathSvg, view, {
       readOnly: Boolean(archive),
       onSelect: selectNode,
       onChange: persistPositions,
+      labels: pathLabels,
     });
     window.MirrorLifePath.renderHistory(historyList, data.history || [], {
       onPick: (h) => paintLifePath(data, { archive: h }),
+      labels: pathLabels,
     });
     historyCount.textContent = String((data.history || []).length);
   }
 
   async function loadLifePath() {
-    const res = await fetch("/api/life-path");
+    const res = await fetch("/api/life-path", { headers: apiHeaders() });
     if (!res.ok) throw new Error(await res.text());
     lifePathData = await res.json();
     paintLifePath(lifePathData);
   }
 
   async function refreshState() {
-    const res = await fetch("/api/state");
+    const res = await fetch("/api/state", { headers: apiHeaders() });
     if (!res.ok) throw new Error(await res.text());
     setMeters(await res.json());
   }
 
   async function boot() {
-    addBubble(
-      "system",
-      "把日记或照片放进左边，分身会重新长出接下来三个月的路。旧的那张地图会收进「人生小路」下面的抽屉里。"
-    );
+    addBubble("system", t("bootHint"));
     try {
-      const res = await fetch("/api/health");
+      const res = await fetch("/api/health", { headers: apiHeaders() });
       const data = await res.json();
       if (!data.ok) {
-        healthLine.textContent = data.error || "灯还没亮";
-        addBubble("warn", data.error || "分身还没醒过来");
+        healthKey = "healthOffline";
+        healthLine.textContent = data.error || t("healthOffline");
+        addBubble("warn", data.error || t("twinAsleep"));
         return;
       }
-      healthLine.textContent = "灯亮着，慢慢来";
+      healthKey = "healthReady";
+      healthLine.textContent = t("healthReady");
       modelLine.textContent = data.model || "";
       await refreshState();
       await loadLifePath();
     } catch (err) {
-      healthLine.textContent = "还连不上";
-      addBubble(
-        "warn",
-        "分身还没醒来。在项目目录运行：uvicorn server:app --reload --port 8787"
-      );
+      healthKey = "healthUnreachable";
+      healthLine.textContent = t("healthUnreachable");
+      addBubble("warn", t("twinAsleepRun"));
     }
   }
 
@@ -269,7 +289,7 @@
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ message }),
       });
       if (!res.ok) {
@@ -347,8 +367,8 @@
 
   function applyWaterResult(data, label) {
     const chunks = (data.results || []).reduce((n, r) => n + r.chunks, 0);
-    dropStatus.textContent = `收下了 ${data.results.length} 件，长成 ${chunks} 段记忆`;
-    addBubble("system", `${label}写进了记忆。小路改了道，旧地图收进抽屉里了。`);
+    dropStatus.textContent = t("wateredDone", data.results.length, chunks);
+    addBubble("system", t("wateredMsg", label));
     if (data.memory_events != null) {
       document.getElementById("m-memory").textContent = String(data.memory_events);
     }
@@ -363,17 +383,21 @@
     const files = [...fileList];
     if (!files.length) return;
     setBusy(true);
-    dropStatus.textContent = `正在收下… ${files.length} 件`;
+    dropStatus.textContent = t("watering", files.length);
     drop.classList.add("dragover");
     try {
       const fd = new FormData();
       for (const f of files) fd.append("files", f, f.name);
-      const res = await fetch("/api/water/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/water/upload", {
+        method: "POST",
+        headers: apiHeaders(),
+        body: fd,
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errText(data, "upload failed"));
-      applyWaterResult(data, "这些文件已经");
+      applyWaterResult(data, t("wateredFiles"));
     } catch (err) {
-      dropStatus.textContent = "这次没收下";
+      dropStatus.textContent = t("waterFail");
       addBubble("warn", String(err.message || err));
     } finally {
       drop.classList.remove("dragover");
@@ -415,13 +439,13 @@
     try {
       const res = await fetch("/api/water/note", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ note }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errText(data, "note failed"));
       noteInput.value = "";
-      applyWaterResult(data, "这句日记已经");
+      applyWaterResult(data, t("wateredNote"));
     } catch (err) {
       addBubble("warn", String(err.message || err));
     } finally {
@@ -444,28 +468,30 @@
   regenPathBtn.addEventListener("click", async () => {
     if (busy) return;
     setBusy(true);
-    regenPathBtn.textContent = "在想…";
+    regenPathBtn.textContent = t("regenBusy");
     try {
-      const res = await fetch("/api/life-path/regenerate", { method: "POST" });
+      const res = await fetch("/api/life-path/regenerate", {
+        method: "POST",
+        headers: apiHeaders(),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errText(data, "regen failed"));
       lifePathData = data;
       paintLifePath(lifePathData);
-      addBubble("system", "分身重新想了一遍接下来三个月。上一张地图收进抽屉了。");
+      addBubble("system", t("regenDone"));
     } catch (err) {
       addBubble("warn", String(err.message || err));
     } finally {
-      regenPathBtn.textContent = "重新想想";
+      regenPathBtn.textContent = t("regen");
       setBusy(false);
     }
   });
 
   function openModal(mode) {
     modalMode = mode;
-    modalTitle.textContent = mode === "board" ? "此刻卡在哪里？" : "想走哪一条？";
+    modalTitle.textContent = mode === "board" ? t("modalBoardTitle") : t("modalSimTitle");
     modalInput.value = "";
-    modalInput.placeholder =
-      mode === "board" ? "比如：去大厂，还是自己做点什么" : "比如：先把这个小产品做满三个月";
+    modalInput.placeholder = mode === "board" ? t("modalBoardPh") : t("modalSimPh");
     overlay.classList.remove("hidden");
     overlay.setAttribute("aria-hidden", "false");
     modalInput.focus();
@@ -491,24 +517,35 @@
     closeModal();
     setBusy(true);
     showView("chat");
-    addBubble("system", mode === "board" ? "分身在把这件事摊开看看…" : "分身在按月帮你走一遍…");
+    addBubble("system", mode === "board" ? t("boardRunning") : t("simRunning"));
     try {
       const res = await fetch(mode === "board" ? "/api/board" : "/api/simulate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(
           mode === "board" ? { dilemma: text } : { choice: text }
         ),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errText(data, "sandbox failed"));
-      addBubble("mirror", data.output || "(无输出)");
+      addBubble("mirror", data.output || t("noOutput"));
       if (data.state) setMeters(data.state);
     } catch (err) {
       addBubble("warn", String(err.message || err));
     } finally {
       setBusy(false);
     }
+  });
+
+  document.querySelectorAll(".lang-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.lang === i18n.current()) return;
+      i18n.setLang(btn.dataset.lang);
+      healthLine.textContent = t(healthKey);
+      if (!busy) dropStatus.textContent = t("dropWaiting");
+      regenPathBtn.textContent = t("regen");
+      if (lifePathData) paintLifePath(lifePathData, { archive: viewingArchive || undefined });
+    });
   });
 
   boot();

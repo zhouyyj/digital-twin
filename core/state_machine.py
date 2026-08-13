@@ -74,7 +74,13 @@ class UserState:
 
 
 def is_deduction_request(user_text: str) -> bool:
-    return "推演" in user_text or "做选择" in user_text
+    lower = user_text.lower()
+    return (
+        "推演" in user_text
+        or "做选择" in user_text
+        or "deduce" in lower
+        or "make a choice" in lower
+    )
 
 
 def deduction_instruction_block(state: UserState) -> str:
