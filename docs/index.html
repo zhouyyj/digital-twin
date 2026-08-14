@@ -4,39 +4,46 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Digital Twin — preview</title>
-  <meta name="description" content="Digital Twin: water it with diaries and photos, then walk the months ahead." />
+  <meta name="description" content="Digital Twin: add diaries and photos, then see possible months ahead." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,550;9..144,650&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;700&family=Outfit:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
   <style>
     :root {
-      --paper: #f4ece2;
-      --cream: #faf6f0;
-      --ink: #3d3229;
-      --muted: #8a7668;
-      --terracotta: #c4785a;
-      --line: rgba(90, 64, 48, 0.12);
-      --shadow: 0 18px 40px rgba(80, 52, 36, 0.1);
+      --bg: #121214;
+      --panel: #1c1814;
+      --ink: #f4efe6;
+      --muted: #8d8478;
+      --wood: #8b5a3c;
+      --wood-dark: #4a2e1c;
+      --leaf: #4a9c4a;
+      --line: rgba(244, 239, 230, 0.1);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: "Noto Sans SC", "Songti SC", sans-serif;
+      font-family: Outfit, sans-serif;
       color: var(--ink);
-      background:
-        radial-gradient(900px 520px at 88% -8%, rgba(212, 165, 116, 0.28), transparent 55%),
-        linear-gradient(180deg, #f7f1e8 0%, var(--paper) 42%, #efe4d6 100%);
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 16px 16px;
       min-height: 100vh;
       padding: 2rem 1.25rem 3rem;
     }
     .wrap { max-width: 980px; margin: 0 auto; }
     .kicker {
-      color: var(--terracotta);
-      letter-spacing: 0.06em;
-      font-size: 0.82rem;
+      font-family: "Pixelify Sans", monospace;
+      color: var(--leaf);
+      letter-spacing: 0.04em;
+      font-size: 0.9rem;
       margin-bottom: 0.35rem;
     }
     h1 {
-      font-family: Fraunces, "Noto Serif SC", serif;
+      font-family: "Pixelify Sans", monospace;
       font-size: clamp(2rem, 5vw, 2.8rem);
       line-height: 1.05;
       margin-bottom: 0.55rem;
@@ -56,24 +63,21 @@
     .btn {
       display: inline-block;
       padding: 0.62rem 1rem;
-      border-radius: 999px;
       text-decoration: none;
       font-size: 0.92rem;
-      border: 1px solid var(--line);
-      background: var(--cream);
+      border: 3px solid var(--wood-dark);
+      background: var(--panel);
       color: var(--ink);
-      box-shadow: var(--shadow);
+      box-shadow: inset 0 0 0 2px var(--wood);
     }
     .btn.primary {
-      background: #efe0d4;
-      border-color: rgba(196, 120, 90, 0.35);
+      background: #2a1c12;
     }
     .shot {
-      border-radius: 22px;
       overflow: hidden;
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      background: var(--cream);
+      border: 4px solid var(--wood-dark);
+      box-shadow: inset 0 0 0 4px var(--wood);
+      background: var(--panel);
     }
     .shot img {
       display: block;
@@ -93,13 +97,13 @@
       gap: 0.85rem;
     }
     .card {
-      background: rgba(250, 246, 240, 0.85);
-      border: 1px solid var(--line);
-      border-radius: 18px;
+      background: var(--panel);
+      border: 3px solid var(--wood-dark);
+      box-shadow: inset 0 0 0 2px var(--wood);
       padding: 1rem 1.05rem;
     }
     .card h2 {
-      font-family: Fraunces, "Noto Serif SC", serif;
+      font-family: "Pixelify Sans", monospace;
       font-size: 1.05rem;
       margin-bottom: 0.35rem;
     }
@@ -112,18 +116,18 @@
 </head>
 <body>
   <main class="wrap">
-    <p class="kicker">Digital avatar</p>
+    <p class="kicker">Local</p>
     <h1>Digital Twin</h1>
     <p class="lead">
-      A local-first twin you water with diaries, photos, and documents.
-      It remembers, pushes back gently, and maps the months ahead as branching paths — not a mind map.
+      Add files and notes. Then see possible paths.
+      A local twin with file memory, a physical state, and a branching life-path map.
     </p>
     <div class="actions">
       <a class="btn primary" href="https://github.com/zhouyyj/digital-twin">View on GitHub</a>
       <a class="btn" href="https://github.com/zhouyyj/digital-twin#setup">Run locally</a>
     </div>
     <figure class="shot">
-      <img src="./preview.png" alt="Digital Twin web UI — chat, watering, and life path map" />
+      <img src="./preview.png" alt="Digital Twin web UI — chat and life path" />
     </figure>
     <p class="note">
       Live demo requires your own OpenAI key and runs on your machine (<code>uvicorn server:app --port 8787</code>).
@@ -131,16 +135,16 @@
     </p>
     <section class="features">
       <article class="card">
-        <h2>Water memory</h2>
-        <p>Drag diaries, PDFs, and images in. The twin chunks and embeds them locally.</p>
+        <h2>Add files</h2>
+        <p>Drop diaries, PDFs, and images. They are chunked and stored locally.</p>
       </article>
       <article class="card">
         <h2>Life path</h2>
-        <p>Three forks from today, three from each — editable pebble nodes with archived maps.</p>
+        <p>3 branches from today, then 3 from each. Drag and edit nodes. Previous paths stay in History.</p>
       </article>
       <article class="card">
         <h2>Physical state</h2>
-        <p>Reserve, energy, and chaos constrain deduction and simulation replies.</p>
+        <p>Capital, energy, and entropy constrain deduction and simulation replies.</p>
       </article>
     </section>
   </main>
