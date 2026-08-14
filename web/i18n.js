@@ -2,7 +2,7 @@ window.TwinI18n = (() => {
   const STRINGS = {
     en: {
       metaDescription:
-        "Digital Twin: water it with diaries and photos, then walk the next three months.",
+        "Digital Twin: water it with diaries and photos, then walk the months ahead.",
       kicker: "Digital avatar",
       brandSub: "Feed it slowly. The path grows on its own.",
       tabChat: "Chat",
@@ -14,7 +14,7 @@ window.TwinI18n = (() => {
       dropAria: "Drop files to water memory",
       dropTitle: "Water a memory",
       dropBody:
-        "Drop in a diary, photo, or document.<br />The twin will grow a new three-month path; the old map goes in the drawer.",
+        "Drop in a diary, photo, or document.<br />The twin will grow a new path; the old map goes in the drawer.",
       dropWaiting: "Waiting for a piece of your life",
       noteLabel: "A quick line",
       notePlaceholder: "What happened today… ⌘/Ctrl + Enter to save",
@@ -32,9 +32,13 @@ window.TwinI18n = (() => {
       chatPlaceholder:
         "Say whatever’s on your mind… Enter to send, Shift+Enter for a new line. Mention “deduce” or “choose” to count the cost.",
       send: "Send",
-      pathsTitle: "The next three months",
+      pathsTitle: (n = 3) => (n === 1 ? "The next month" : `The next ${n} months`),
       pathsLoading: "Laying out the path…",
-      pathsHint: "Drag nodes · pan the blank space · scroll to zoom",
+      pathsHint: "Three forks, then three from each · drag the stones · pan · scroll to zoom",
+      horizonAria: "How many months ahead",
+      horizonValue: (n) => (n === 1 ? "1 month" : `${n} months`),
+      horizonLess: "Fewer months",
+      horizonMore: "More months",
       resetCam: "Center",
       regen: "Think again",
       regenBusy: "Thinking…",
@@ -65,7 +69,7 @@ window.TwinI18n = (() => {
       whoAlert: "The twin gently stopped you",
       whoSystem: "Aside",
       bootHint:
-        "Drop a diary or photo on the left. The twin will grow the next three months; old maps go in the drawer under Life path.",
+        "Drop a diary or photo on the left. The twin will grow the months ahead; old maps go in the drawer under Life path.",
       wateredFiles: "These files are",
       wateredNote: "That diary line is",
       wateredDone: (files, chunks) =>
@@ -74,7 +78,7 @@ window.TwinI18n = (() => {
         `${prefix} written into memory. The path changed; the old map is in the drawer.`,
       watering: (n) => `Taking it in… ${n} file(s)`,
       waterFail: "Didn’t take this time",
-      regenDone: "The twin rethought the next three months. The last map is in the drawer.",
+      regenDone: "The twin rethought the months ahead. The last map is in the drawer.",
       boardRunning: "The twin is spreading this out…",
       simRunning: "The twin is walking this month by month…",
       noOutput: "(nothing came back)",
@@ -89,7 +93,7 @@ window.TwinI18n = (() => {
       none: "(none)",
     },
     zh: {
-      metaDescription: "数字分身：浇灌日记与影像，看看接下来三个月的路。",
+      metaDescription: "数字分身：浇灌日记与影像，看看前面几个月的路。",
       kicker: "数字分身",
       brandSub: "慢慢浇灌，路会自己长出来。",
       tabChat: "聊聊",
@@ -101,7 +105,7 @@ window.TwinI18n = (() => {
       dropAria: "拖放文件以浇灌记忆",
       dropTitle: "浇一杯记忆",
       dropBody:
-        "把日记、照片或文档轻轻放进来。<br />分身会重新长出未来三个月的路，旧的那张会收进抽屉。",
+        "把日记、照片或文档轻轻放进来。<br />分身会重新长出前面的路，旧的那张会收进抽屉。",
       dropWaiting: "等你带来一点生活",
       noteLabel: "随手写一句",
       notePlaceholder: "今天发生了什么… ⌘/Ctrl + Enter 送进去",
@@ -119,9 +123,13 @@ window.TwinI18n = (() => {
       chatPlaceholder:
         "想说什么就说… Enter 送出，Shift+Enter 换行。提到「推演」或「做选择」时会认真算消耗",
       send: "送出",
-      pathsTitle: "接下来三个月",
+      pathsTitle: (n = 3) => `接下来 ${n} 个月`,
       pathsLoading: "正在铺开小路…",
-      pathsHint: "拖节点改位置 · 空白处拖动画布 · 滚轮缩放",
+      pathsHint: "三个分叉，每个再分三条 · 拖石子 · 空白处拖动 · 滚轮缩放",
+      horizonAria: "看前面几个月",
+      horizonValue: (n) => `${n} 个月`,
+      horizonLess: "少一个月",
+      horizonMore: "多一个月",
       resetCam: "回到中心",
       regen: "重新想想",
       regenBusy: "在想…",
@@ -151,7 +159,7 @@ window.TwinI18n = (() => {
       whoAlert: "分身轻轻拦住你",
       whoSystem: "旁白",
       bootHint:
-        "把日记或照片放进左边，分身会重新长出接下来三个月的路。旧的那张地图会收进「人生小路」下面的抽屉里。",
+        "把日记或照片放进左边，分身会重新长出前面几个月的路。旧的那张地图会收进「人生小路」下面的抽屉里。",
       wateredFiles: "这些文件已经",
       wateredNote: "这句日记已经",
       wateredDone: (files, chunks) =>
@@ -160,7 +168,7 @@ window.TwinI18n = (() => {
         `${prefix}写进了记忆。小路改了道，旧地图收进抽屉里了。`,
       watering: (n) => `正在收下… ${n} 件`,
       waterFail: "这次没收下",
-      regenDone: "分身重新想了一遍接下来三个月。上一张地图收进抽屉了。",
+      regenDone: "分身重新想了一遍前面的路。上一张地图收进抽屉了。",
       boardRunning: "分身在把这件事摊开看看…",
       simRunning: "分身在按月帮你走一遍…",
       noOutput: "(无输出)",
@@ -201,6 +209,7 @@ window.TwinI18n = (() => {
       const key = el.getAttribute("data-i18n");
       const mode = el.getAttribute("data-i18n-mode") || "text";
       const value = t(key);
+      if (typeof value === "function") return;
       if (mode === "html") el.innerHTML = value;
       else el.textContent = value;
     });

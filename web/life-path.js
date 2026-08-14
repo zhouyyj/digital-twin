@@ -1,12 +1,14 @@
 window.MirrorLifePath = (() => {
-  const OPEN = "#7a9a78";
-  const CLOSED = "#d9cbbd";
-  const CLOSED_STROKE = "#c9b8a8";
+  const OPEN = "#6f8f6d";
+  const CLOSED = "#d5c6b6";
+  const CLOSED_STROKE = "#c4b3a2";
   const TODAY = "#c4785a";
   const TRUNK = "#b08968";
-  const GRID = "rgba(196, 120, 90, 0.28)";
   const LABEL = "#8a7668";
-  const FONT = "Noto Sans SC, Songti SC, sans-serif";
+  const INK = "#3d3229";
+  const INK_SOFT = "#6b5b4e";
+  const SERIF = "Fraunces, Noto Serif SC, serif";
+  const SANS = "Noto Sans SC, Songti SC, sans-serif";
 
   function el(name, attrs = {}, text) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -15,21 +17,90 @@ window.MirrorLifePath = (() => {
     return node;
   }
 
-  function nodeSize(kind) {
-    if (kind === "today") return { w: 128, h: 42 };
-    return { w: 102, h: 36 };
+  function hashStr(s) {
+    let h = 0;
+    for (let i = 0; i < String(s).length; i++) {
+      h = (h * 31 + String(s).charCodeAt(i)) | 0;
+    }
+    return Math.abs(h);
+  }
+
+  function wrapLabel(text, maxChars, maxLines) {
+    const raw = String(text || "").trim();
+    if (!raw) return [""];
+    const isCjk = /[\u4e00-\u9fff]/.test(raw);
+    if (isCjk) {
+      const lines = [];
+      for (let i = 0; i < maxLines; i++) {
+        const slice = raw.slice(i * maxChars, (i + 1) * maxChars);
+        if (!slice) break;
+        lines.push(slice);
+      }
+      return lines;
+    }
+    const words = raw.split(/\s+/);
+    const lines = [];
+    let cur = "";
+    for (const w of words) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (next.length > maxChars && cur) {
+        lines.push(cur);
+        cur = w;
+        if (lines.length === maxLines) return lines;
+      } else {
+        cur = next;
+      }
+    }
+    if (cur && lines.length < maxLines) lines.push(cur);
+    return lines.length ? lines : [raw.slice(0, maxChars)];
+  }
+
+  function pebbleSize(kind) {
+    if (kind === "today") return { rx: 22, ry: 16 };
+    if (kind === "closed") return { rx: 11, ry: 8 };
+    if (kind === "trunk") return { rx: 15, ry: 11 };
+    return { rx: 18, ry: 13 };
+  }
+
+  function pebblePath(id, kind) {
+    const { rx, ry } = pebbleSize(kind);
+    const h = hashStr(id || "stone");
+    const n = 8;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 - 0.35;
+      const jx = 0.74 + ((h >> (i * 2)) % 11) / 28;
+      const jy = 0.78 + ((h >> (i * 3 + 1)) % 9) / 32;
+      pts.push([Math.cos(a) * rx * jx, Math.sin(a) * ry * jy]);
+    }
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    let d = "";
+    for (let i = 0; i < n; i++) {
+      const p = pts[i];
+      const q = pts[(i + 1) % n];
+      const m = mid(p, q);
+      if (i === 0) {
+        const start = mid(pts[n - 1], p);
+        d += `M ${start[0].toFixed(1)} ${start[1].toFixed(1)}`;
+      }
+      d += ` Q ${p[0].toFixed(1)} ${p[1].toFixed(1)} ${m[0].toFixed(1)} ${m[1].toFixed(1)}`;
+    }
+    return `${d} Z`;
   }
 
   function layout(data, labels = {}) {
     const trunk = data?.past?.trunk || [];
     const closed = data?.past?.closed || [];
     const months = data?.future?.months || [];
-    const W = 1200;
-    const H = 560;
-    const todayX = data?.today_x ?? 430;
+    const nMonths = Math.max(months.length, 1);
+    const maxFan = Math.max(3, ...months.map((m) => (m.nodes || []).length), 9);
+
+    const todayX = data?.today_x ?? 340;
+    const colGap = 230;
+    const W = Math.max(1180, todayX + 90 + nMonths * colGap + 200);
+    const H = Math.max(720, 140 + maxFan * 74);
     const midY = data?.today_y ?? H / 2;
-    const leftPad = 56;
-    const rightPad = 48;
+    const leftPad = 52;
 
     const positions = new Map();
     const nodes = [];
@@ -37,8 +108,9 @@ window.MirrorLifePath = (() => {
     const trunkCount = Math.max(trunk.length, 1);
     trunk.forEach((n, i) => {
       const t = trunkCount === 1 ? 0.5 : i / (trunkCount - 1);
-      const x = n.x ?? leftPad + t * (todayX - 80 - leftPad);
-      const y = n.y ?? midY + Math.sin(t * Math.PI) * 40;
+      const wander = ((hashStr(n.id) % 21) - 10);
+      const x = n.x ?? leftPad + t * (todayX - 88 - leftPad);
+      const y = n.y ?? midY + Math.sin(t * Math.PI) * 28 + wander * 0.4;
       const item = { ...n, kind: "trunk", x, y };
       positions.set(n.id, item);
       nodes.push(item);
@@ -46,7 +118,7 @@ window.MirrorLifePath = (() => {
 
     const today = {
       id: "today",
-      label: data?.today_label || (typeof labels?.todayFallback === "string" ? labels.todayFallback : "Your life · today"),
+      label: data?.today_label || (typeof labels?.todayFallback === "string" ? labels.todayFallback : "You, here"),
       detail: data?.summary || "",
       kind: "today",
       x: todayX,
@@ -62,45 +134,61 @@ window.MirrorLifePath = (() => {
           : trunk[trunk.length - 1]?.id || "today";
       const origin = positions.get(fromId) || today;
       const side = i % 2 === 0 ? -1 : 1;
-      const x = n.x ?? origin.x + 24 + (i % 3) * 18;
-      const y = n.y ?? origin.y + side * (52 + (i % 4) * 32);
+      const x = n.x ?? origin.x + 10 + (i % 3) * 14 + (hashStr(n.id) % 12);
+      const y = n.y ?? origin.y + side * (48 + (i % 4) * 28) + ((hashStr(n.id) % 15) - 7);
       const item = { ...n, kind: "closed", x, y, fromId };
       positions.set(n.id, item);
       nodes.push(item);
     });
 
-    const monthXs = months.map((_, i) => {
-      const span = W - todayX - rightPad;
-      return todayX + 110 + (i + 1) * (span / (months.length + 0.25));
-    });
+    const familyYs = [0.2, 0.5, 0.8].map((t) => 70 + t * (H - 140));
+    const colX = (mi) => todayX + 118 + mi * colGap;
 
     months.forEach((month, mi) => {
       const list = month.nodes || [];
-      const x0 = monthXs[mi];
-      list.forEach((n, ni) => {
-        const spread = Math.max(list.length - 1, 1);
-        const x = n.x ?? x0;
-        const y = n.y ?? midY + (ni - spread / 2) * 84;
-        const item = { ...n, kind: "open", x, y, month: month.month };
-        positions.set(n.id, item);
-        nodes.push(item);
+      if (mi === 0) {
+        list.forEach((n, ni) => {
+          const baseY = familyYs[ni] ?? (70 + ((ni + 0.5) / Math.max(list.length, 1)) * (H - 140));
+          const xJ = (hashStr(n.id) % 17) - 8;
+          const yJ = (hashStr(n.id + "y") % 13) - 6;
+          const x = n.x ?? colX(0) + xJ;
+          const y = n.y ?? baseY + yJ;
+          const item = { ...n, kind: "open", x, y, month: month.month, family: ni };
+          positions.set(n.id, item);
+          nodes.push(item);
+        });
+        return;
+      }
+
+      const groups = new Map();
+      list.forEach((n) => {
+        const pid = n.parent && positions.has(n.parent) ? n.parent : "today";
+        if (!groups.has(pid)) groups.set(pid, []);
+        groups.get(pid).push(n);
+      });
+
+      groups.forEach((children, pid) => {
+        const parent = positions.get(pid) || today;
+        const n = children.length;
+        children.forEach((node, ni) => {
+          const spread = n === 1 ? 0 : (ni - (n - 1) / 2) * 58;
+          const xJ = (hashStr(node.id) % 15) - 7;
+          const yJ = (hashStr(node.id + "y") % 11) - 5;
+          const x = node.x ?? colX(mi) + xJ;
+          const y = node.y ?? parent.y + spread + yJ * 0.35;
+          const item = { ...node, kind: "open", x, y, month: month.month };
+          positions.set(node.id, item);
+          nodes.push(item);
+        });
       });
     });
 
     const edges = [];
     for (let i = 1; i < trunk.length; i++) {
-      edges.push({
-        fromId: trunk[i - 1].id,
-        toId: trunk[i].id,
-        kind: "trunk",
-      });
+      edges.push({ fromId: trunk[i - 1].id, toId: trunk[i].id, kind: "trunk" });
     }
     if (trunk.length) {
-      edges.push({
-        fromId: trunk[trunk.length - 1].id,
-        toId: "today",
-        kind: "trunk",
-      });
+      edges.push({ fromId: trunk[trunk.length - 1].id, toId: "today", kind: "trunk" });
     }
     closed.forEach((n) => {
       edges.push({
@@ -119,12 +207,26 @@ window.MirrorLifePath = (() => {
       });
     });
 
-    return { W, H, todayX, midY, nodes, edges, months, positions };
+    return { W, H, todayX, midY, nodes, edges, months, positions, colGap };
   }
 
-  function curve(a, b) {
-    const mx = (a.x + b.x) / 2;
-    return `M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`;
+  function curve(a, b, kind) {
+    const dx = b.x - a.x;
+    const wobble = ((hashStr(`${a.id}|${b.id}`) % 19) - 9) * (kind === "closed" ? 1.6 : 0.9);
+    const lift = kind === "closed" ? (b.y < a.y ? -22 : 22) : 0;
+    const c1x = a.x + dx * 0.42;
+    const c2x = a.x + dx * 0.62;
+    return `M ${a.x} ${a.y} C ${c1x} ${a.y + wobble + lift}, ${c2x} ${b.y - wobble}, ${b.x} ${b.y}`;
+  }
+
+  function addWrappedText(parent, lines, attrs) {
+    const text = el("text", attrs);
+    lines.forEach((line, i) => {
+      const span = el("tspan", { x: attrs.x, dy: i === 0 ? 0 : 15 }, line);
+      text.appendChild(span);
+    });
+    parent.appendChild(text);
+    return text;
   }
 
   function render(svg, data, { onSelect, onChange, readOnly = false, labels = {} } = {}) {
@@ -141,82 +243,95 @@ window.MirrorLifePath = (() => {
     svg.style.touchAction = "none";
     svg.style.cursor = "grab";
 
+    const defs = el("defs");
+    function radial(id, c0, c1) {
+      const g = el("radialGradient", {
+        id,
+        cx: "32%",
+        cy: "28%",
+        r: "78%",
+      });
+      g.appendChild(el("stop", { offset: "0%", "stop-color": c0 }));
+      g.appendChild(el("stop", { offset: "100%", "stop-color": c1 }));
+      defs.appendChild(g);
+    }
+    radial("pebbleToday", "#e8a888", "#a85f44");
+    radial("pebbleOpen", "#b7c4a4", "#5d7a5c");
+    radial("pebbleTrunk", "#d4b08a", "#8d6a4a");
+    radial("pebbleClosed", "#efe4d6", "#c4b3a2");
+    const drop = el("filter", { id: "pebbleShadow", x: "-40%", y: "-20%", width: "180%", height: "180%" });
+    drop.appendChild(el("feDropShadow", {
+      dx: "0.6",
+      dy: "1.8",
+      stdDeviation: "1.4",
+      "flood-color": "#503428",
+      "flood-opacity": "0.28",
+    }));
+    defs.appendChild(drop);
+    svg.appendChild(defs);
+
     const world = el("g");
     svg.appendChild(world);
 
     function applyCamera() {
-      world.setAttribute(
-        "transform",
-        `translate(${camera.x} ${camera.y}) scale(${camera.k})`
-      );
+      world.setAttribute("transform", `translate(${camera.x} ${camera.y}) scale(${camera.k})`);
     }
     applyCamera();
 
     world.appendChild(
       el("rect", {
-        x: -400,
-        y: -400,
-        width: L.W + 800,
-        height: L.H + 800,
+        x: -500,
+        y: -500,
+        width: L.W + 1000,
+        height: L.H + 1000,
         fill: "transparent",
       })
     );
 
-    world.appendChild(
-      el("line", {
-        x1: L.todayX,
-        y1: 8,
-        x2: L.todayX,
-        y2: L.H - 24,
-        stroke: GRID,
-        "stroke-width": 1.5,
-        "stroke-dasharray": "5 6",
-      })
-    );
+    const road = el("path", {
+      d: `M 40 ${L.midY} C ${L.todayX * 0.55} ${L.midY - 8}, ${L.todayX * 0.78} ${L.midY + 6}, ${L.todayX} ${L.midY}`,
+      fill: "none",
+      stroke: "rgba(176, 137, 104, 0.22)",
+      "stroke-width": 14,
+      "stroke-linecap": "round",
+    });
+    world.appendChild(road);
+
     world.appendChild(
       el("text", {
-        x: L.todayX,
-        y: 22,
+        x: 52,
+        y: L.H - 18,
         fill: LABEL,
-        "text-anchor": "middle",
-        "font-family": FONT,
+        "font-family": SERIF,
         "font-size": 13,
-      }, labels.today || "today")
-    );
-    world.appendChild(
-      el("text", {
-        x: 56,
-        y: L.H - 16,
-        fill: LABEL,
-        "font-family": FONT,
-        "font-size": 13,
+        "font-style": "italic",
       }, labels.past || "← the path taken")
     );
     world.appendChild(
       el("text", {
         x: L.W - 48,
-        y: L.H - 16,
+        y: L.H - 18,
         fill: LABEL,
         "text-anchor": "end",
-        "font-family": FONT,
+        "font-family": SERIF,
         "font-size": 13,
+        "font-style": "italic",
       }, labels.future || "places still open →")
     );
 
-    L.months.forEach((month) => {
-      const sample = (month.nodes || [])
-        .map((n) => byId.get(n.id))
-        .filter(Boolean)[0];
+    L.months.forEach((month, mi) => {
+      const sample = (month.nodes || []).map((n) => byId.get(n.id)).filter(Boolean)[0];
       if (!sample) return;
       world.appendChild(
         el("text", {
           x: sample.x,
-          y: 36,
-          fill: OPEN,
+          y: 32,
+          fill: "rgba(109, 143, 107, 0.85)",
           "text-anchor": "middle",
-          "font-family": FONT,
-          "font-size": 13,
-        }, month.label || (labels.month ? labels.month(month.month) : `Month ${month.month}`))
+          "font-family": SERIF,
+          "font-size": 12,
+          "font-style": "italic",
+        }, labels.month ? labels.month(month.month) : `Month ${month.month}`)
       );
     });
 
@@ -230,8 +345,10 @@ window.MirrorLifePath = (() => {
       const path = el("path", {
         fill: "none",
         stroke: e.kind === "closed" ? CLOSED_STROKE : e.kind === "trunk" ? TRUNK : OPEN,
-        "stroke-width": e.kind === "trunk" ? 3.6 : e.kind === "closed" ? 1.5 : 2.2,
-        opacity: e.kind === "closed" ? 0.7 : 1,
+        "stroke-width": e.kind === "trunk" ? 2.8 : e.kind === "closed" ? 1.15 : 1.7,
+        "stroke-linecap": "round",
+        "stroke-dasharray": e.kind === "closed" ? "5 7" : e.kind === "open" ? "0" : "0",
+        opacity: e.kind === "closed" ? 0.65 : 0.92,
       });
       edgeLayer.appendChild(path);
       edgeEls.push({ el: path, ...e });
@@ -242,57 +359,152 @@ window.MirrorLifePath = (() => {
         const a = byId.get(e.fromId);
         const b = byId.get(e.toId);
         if (!a || !b) return;
-        e.el.setAttribute("d", curve(a, b));
+        e.el.setAttribute("d", curve(a, b, e.kind));
       });
     }
 
     const nodeEls = new Map();
 
     function paintNode(n) {
-      const { w, h } = nodeSize(n.kind);
-      let fill = OPEN;
-      let stroke = OPEN;
-      let textFill = "#f7f4ee";
-      if (n.kind === "closed") {
-        fill = CLOSED;
-        stroke = CLOSED_STROKE;
-        textFill = "#6b5b4e";
-      } else if (n.kind === "today") {
-        fill = TODAY;
-        stroke = TODAY;
-        textFill = "#fffaf6";
-      } else if (n.kind === "trunk") {
-        fill = TRUNK;
-        stroke = TRUNK;
-      }
+      const { rx, ry } = pebbleSize(n.kind);
+      const fill =
+        n.kind === "today"
+          ? "url(#pebbleToday)"
+          : n.kind === "closed"
+            ? "url(#pebbleClosed)"
+            : n.kind === "trunk"
+              ? "url(#pebbleTrunk)"
+              : "url(#pebbleOpen)";
+      const stroke =
+        n.kind === "today" ? "#8d4e36" : n.kind === "closed" ? CLOSED_STROKE : n.kind === "trunk" ? "#7a5638" : "#4e664c";
+
       const g = el("g", {
         class: "path-node",
         "data-id": n.id,
         style: `cursor:${readOnly ? "pointer" : "grab"}`,
       });
+
+      const d = pebblePath(n.id, n.kind);
+      const halo = el("path", {
+        class: "halo",
+        d,
+        fill: "none",
+        stroke: n.kind === "today" ? TODAY : OPEN,
+        "stroke-width": 7,
+        "stroke-linejoin": "round",
+        opacity: n.kind === "today" ? 0.35 : 0,
+        transform: "scale(1.18)",
+      });
+      g.appendChild(halo);
+
       g.appendChild(
-        el("rect", {
-          x: -w / 2,
-          y: -h / 2,
-          width: w,
-          height: h,
-          rx: 16,
+        el("circle", {
+          class: "hit",
+          r: Math.max(rx, ry) + 16,
+          fill: "transparent",
+        })
+      );
+
+      g.appendChild(
+        el("ellipse", {
+          cx: 1,
+          cy: ry + 2,
+          rx: rx * 0.85,
+          ry: 4.2,
+          fill: "rgba(80, 52, 36, 0.18)",
+        })
+      );
+
+      g.appendChild(
+        el("path", {
+          class: "stone",
+          d,
           fill,
           stroke,
-          "stroke-width": n.kind === "today" ? 2 : 1,
+          "stroke-width": n.kind === "today" ? 1.4 : 1,
+          "stroke-linejoin": "round",
+          filter: "url(#pebbleShadow)",
+        })
+      );
+
+      const h = hashStr(n.id);
+      g.appendChild(
+        el("ellipse", {
+          cx: -rx * 0.28,
+          cy: -ry * 0.32,
+          rx: rx * 0.32,
+          ry: ry * 0.18,
+          fill: "#fffaf4",
+          opacity: 0.28,
+          "pointer-events": "none",
         })
       );
       g.appendChild(
-        el("text", {
-          x: 0,
-          y: 5,
-          fill: textFill,
-          "text-anchor": "middle",
-          "font-family": FONT,
-          "font-size": n.kind === "today" ? 12 : 11,
+        el("circle", {
+          cx: rx * 0.18,
+          cy: ry * 0.08,
+          r: 1.4 + (h % 3) * 0.4,
+          fill: "rgba(61, 50, 41, 0.18)",
           "pointer-events": "none",
-        }, (n.label || "").slice(0, 12))
+        })
       );
+      g.appendChild(
+        el("circle", {
+          cx: -rx * 0.06,
+          cy: ry * 0.28,
+          r: 1 + ((h >> 3) % 2) * 0.5,
+          fill: "rgba(61, 50, 41, 0.14)",
+          "pointer-events": "none",
+        })
+      );
+
+      const pastSide = n.kind === "trunk" || n.kind === "closed";
+      const side = pastSide ? -1 : 1;
+      const tx = side * (rx + 14);
+      const anchor = side < 0 ? "end" : "start";
+      const titleFill = n.kind === "closed" ? "#8a7668" : INK;
+      const maxChars = /[\u4e00-\u9fff]/.test(n.label || "") ? 8 : 16;
+      const titleLines = wrapLabel(n.label || "", maxChars, 2);
+      addWrappedText(g, titleLines, {
+        x: tx,
+        y: n.kind === "today" ? -2 : -8,
+        fill: titleFill,
+        "text-anchor": anchor,
+        "font-family": SERIF,
+        "font-size": n.kind === "today" ? 16 : n.kind === "closed" ? 11 : 14,
+        "font-weight": n.kind === "today" ? 650 : 500,
+        "pointer-events": "none",
+      });
+
+      if (n.kind === "today") {
+        g.appendChild(
+          el("text", {
+            x: tx,
+            y: 18,
+            fill: LABEL,
+            "text-anchor": anchor,
+            "font-family": SANS,
+            "font-size": 10,
+            "pointer-events": "none",
+          }, labels.today || "today")
+        );
+      } else if (n.kind !== "closed" && n.detail) {
+        const dChars = /[\u4e00-\u9fff]/.test(n.detail) ? 11 : 26;
+        const snippet = wrapLabel(n.detail, dChars, 1)[0];
+        g.appendChild(
+          el("text", {
+            x: tx,
+            y: 16 + (titleLines.length > 1 ? 12 : 0),
+            fill: INK_SOFT,
+            "text-anchor": anchor,
+            "font-family": SANS,
+            "font-size": 10,
+            opacity: 0.88,
+            "pointer-events": "none",
+          }, snippet)
+        );
+      }
+
       g.setAttribute("transform", `translate(${n.x} ${n.y})`);
       return g;
     }
@@ -329,8 +541,11 @@ window.MirrorLifePath = (() => {
 
     function highlight(id) {
       nodeEls.forEach((g, nid) => {
-        const rect = g.querySelector("rect");
-        if (rect) rect.setAttribute("stroke-width", nid === id ? 3 : nid === "today" ? 2 : 1);
+        const halo = g.querySelector(".halo");
+        if (!halo) return;
+        if (nid === id) halo.setAttribute("opacity", "0.95");
+        else if (nid === "today") halo.setAttribute("opacity", "0.4");
+        else halo.setAttribute("opacity", "0");
       });
     }
 
@@ -407,7 +622,7 @@ window.MirrorLifePath = (() => {
       evt.preventDefault();
       const P = screenToSvg(evt);
       const factor = evt.deltaY < 0 ? 1.08 : 0.92;
-      const next = Math.min(2.4, Math.max(0.45, camera.k * factor));
+      const next = Math.min(2.4, Math.max(0.4, camera.k * factor));
       const ratio = next / camera.k;
       camera.x = P.x * (1 - ratio) + camera.x * ratio;
       camera.y = P.y * (1 - ratio) + camera.y * ratio;

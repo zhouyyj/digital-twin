@@ -1,0 +1,13 @@
+---
+description: Never let Cursor show up as a GitHub contributor
+alwaysApply: true
+---
+
+# No Cursor on GitHub
+
+This repo must list only the human owner as a contributor.
+
+- Never add `Co-authored-by: Cursor` or any `cursoragent@cursor.com` trailer.
+- Never set author/committer to Cursor.
+- If a commit already has that trailer, strip it before pushing (rewrite the message; do not leave it on `main`).
+- Prefer `git commit-tree` / a message rewrite over a commit that would re-inject the trailer.

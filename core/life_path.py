@@ -1,4 +1,4 @@
-"""Life-path simulation — Wait-But-Why style past / today / 3-month future tree."""
+"""Life-path simulation — branching lives, not a mind map."""
 
 from __future__ import annotations
 
@@ -16,6 +16,9 @@ from core.memory_manager import MemoryManager
 from core.state_machine import UserState
 
 LIFE_PATH_FILENAME = "life_path.json"
+MIN_HORIZON = 2
+MAX_HORIZON = 6
+DEFAULT_HORIZON = 3
 
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
 
@@ -24,15 +27,112 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _default_seed(state: UserState) -> dict[str, Any]:
-    """Offline-safe default graph so the section is never empty before first LLM call."""
+def clamp_horizon(value: Any, fallback: int = DEFAULT_HORIZON) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        n = fallback
+    return max(MIN_HORIZON, min(MAX_HORIZON, n))
+
+
+def _n(
+    nid: str,
+    label: str,
+    detail: str,
+    *,
+    parent: str | None = None,
+    capital: float = 0,
+    energy: float = 0,
+    entropy: float = 0,
+) -> dict[str, Any]:
+    node: dict[str, Any] = {
+        "id": nid,
+        "label": label,
+        "detail": detail,
+        "capital_delta": capital,
+        "energy_delta": energy,
+        "entropy_delta": entropy,
+    }
+    if parent:
+        node["parent"] = parent
+    return node
+
+
+def _default_seed(state: UserState, months: int = DEFAULT_HORIZON) -> dict[str, Any]:
+    """Offline-safe default graph: 3 forks, then 3 from each, then those 9 lives continue."""
     today = datetime.now().strftime("%Y-%m-%d")
+    months = clamp_horizon(months)
+
+    m1 = [
+        _n("m1_a", "Gather attention", "Fold the noise into one short list you can actually hold.", capital=-2, energy=-8, entropy=-0.02),
+        _n("m1_b", "Keep drifting", "Stay as you are. The days blur, and nothing asks you back.", energy=-3, entropy=0.04),
+        _n("m1_c", "Make a small bet", "Spend a little so the week has a direction, even a foolish one.", capital=-6, energy=-10, entropy=0.01),
+    ]
+    m2 = [
+        _n("m2_a1", "Protect the hours", "Guard three mornings. The list either lives there or it doesn't.", parent="m1_a", energy=-12, entropy=-0.03),
+        _n("m2_a2", "Say it out loud", "Tell someone who will remember. A witness changes the temperature.", parent="m1_a", energy=-6, entropy=-0.01),
+        _n("m2_a3", "Polish forever", "The list gets prettier. Nothing leaves the notebook.", parent="m1_a", energy=-4, entropy=0.03),
+        _n("m2_b1", "A knock anyway", "Something outside you forces a turn. Not cruel — just sooner.", parent="m1_b", energy=-9, entropy=0.02),
+        _n("m2_b2", "Soft numbness", "Comfortable, expensive in ways you won't notice yet.", parent="m1_b", energy=-2, entropy=0.05),
+        _n("m2_b3", "Name the stall", "You feel the pause and give it one honest sentence.", parent="m1_b", energy=-5, entropy=-0.01),
+        _n("m2_c1", "Double down", "Put a month of life behind the bet so it can bruise you.", parent="m1_c", capital=-12, energy=-14, entropy=0.02),
+        _n("m2_c2", "Keep a back door", "Progress halves; so does the fear. Both futures get thinner.", parent="m1_c", capital=-4, energy=-7, entropy=0.03),
+        _n("m2_c3", "Walk it back", "The bet becomes a story you tell. You are free, and a little poorer in nerve.", parent="m1_c", capital=-1, energy=-4, entropy=0.01),
+    ]
+    m3 = [
+        _n("m3_a1", "First proof", "One thing exists that did not exist when this started.", parent="m2_a1", capital=4, energy=-8, entropy=-0.04),
+        _n("m3_a2", "A witness stays", "Someone else can see you're different, and says so.", parent="m2_a2", energy=-5, entropy=-0.02),
+        _n("m3_a3", "Beautiful stall", "The plan is perfect and untouched. Dust on a bright page.", parent="m2_a3", energy=-3, entropy=0.04),
+        _n("m3_b1", "New weather", "You're living someone else's plot, not unkindly.", parent="m2_b1", energy=-8, entropy=0.02),
+        _n("m3_b2", "Same room", "The furniture hasn't moved. You have, a little.", parent="m2_b2", energy=-2, entropy=0.05),
+        _n("m3_b3", "A usable sentence", "The ache became a line you can act on tomorrow morning.", parent="m2_b3", energy=-6, entropy=-0.02),
+        _n("m3_c1", "It has a name", "Other people use the name of the bet without asking what it is.", parent="m2_c1", capital=6, energy=-10, entropy=-0.03),
+        _n("m3_c2", "Split self", "Two futures, both thinner. You keep both keys.", parent="m2_c2", capital=-3, energy=-6, entropy=0.03),
+        _n("m3_c3", "Clean slate", "Nothing owed. The quiet is real, and slightly hollow.", parent="m2_c3", energy=-3, entropy=0.02),
+    ]
+
+    sequels = [
+        ("Weather sets in", "The choice has seasons now. You dress for it without thinking."),
+        ("A smaller room", "Life rearranged around the fork. Some friends stopped asking."),
+        ("Still a draft", "You are living in pencil. Easy to change; hard to inhabit."),
+        ("Someone else's map", "The path is clear because it isn't yours."),
+        ("Quiet inventory", "You can name what the months cost. That is already a kind of wealth."),
+        ("A door you use", "The sentence became a habit. Morning knows what to do."),
+        ("Public enough", "The work has an address. People knock."),
+        ("Two calendars", "You keep both lives in the same week. Neither gets a full meal."),
+        ("Light luggage", "You left it. The absence is cleaner than you feared, and lonelier."),
+    ]
+
+    future_months: list[dict[str, Any]] = [
+        {"month": 1, "label": "Month 1", "nodes": m1},
+        {"month": 2, "label": "Month 2", "nodes": m2},
+    ]
+    prev = m3
+    if months >= 3:
+        future_months.append({"month": 3, "label": "Month 3", "nodes": m3})
+    for mi in range(4, months + 1):
+        nodes = []
+        for i, parent in enumerate(prev):
+            label, detail = sequels[i]
+            nodes.append(
+                _n(
+                    f"m{mi}_{parent['id'].split('_', 1)[-1]}",
+                    label,
+                    detail,
+                    parent=parent["id"],
+                    energy=-4,
+                    entropy=0.01,
+                )
+            )
+        future_months.append({"month": mi, "label": f"Month {mi}", "nodes": nodes})
+        prev = nodes
+
     return {
-        "version": 1,
+        "version": 2,
         "generated_at": _now_iso(),
         "trigger": "seed",
-        "summary": "A default three-month path: before any watering, the twin lays out forks you can still take.",
-        "today_label": "Your life · today",
+        "summary": "Three doors from today. Each door splits three ways. After that, those nine lives simply continue.",
+        "today_label": "You, here",
         "state_snapshot": {
             "capital": state.capital,
             "energy": state.energy,
@@ -44,7 +144,7 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                 {
                     "id": "awaken",
                     "label": "Twin online",
-                    "detail": "Local memory and the state machine are up; nothing personal has been poured in yet.",
+                    "detail": "Memory is empty. The path ahead is still a sketch.",
                 },
             ],
             "closed": [
@@ -52,110 +152,19 @@ def _default_seed(state: UserState) -> dict[str, Any]:
                     "id": "closed_ignore",
                     "from": "awaken",
                     "label": "Never feed it",
-                    "detail": "Leave the twin hollow — closed.",
+                    "detail": "Leave the twin hollow — a door already shut.",
                 },
                 {
                     "id": "closed_outsource",
                     "from": "awaken",
-                    "label": "Outsource the choice",
-                    "detail": "Let busyness stand in for a decision — closed.",
+                    "label": "Let the week decide",
+                    "detail": "Busyness standing in for a choice.",
                 },
             ],
         },
-        "future": {
-            "months": [
-                {
-                    "month": 1,
-                    "label": "Month 1",
-                    "nodes": [
-                        {
-                            "id": "m1_focus",
-                            "label": "Gather attention",
-                            "detail": "Fold scattered thoughts into a short list you can actually do.",
-                            "capital_delta": -2,
-                            "energy_delta": -8,
-                            "entropy_delta": -0.02,
-                        },
-                        {
-                            "id": "m1_drift",
-                            "label": "Keep drifting",
-                            "detail": "Stay as you are; chaos climbs slowly.",
-                            "capital_delta": 0,
-                            "energy_delta": -3,
-                            "entropy_delta": 0.04,
-                        },
-                    ],
-                },
-                {
-                    "month": 2,
-                    "label": "Month 2",
-                    "nodes": [
-                        {
-                            "id": "m2_commit",
-                            "label": "Pick a direction",
-                            "detail": "Make a small, hard-to-undo promise to one item on the list.",
-                            "parent": "m1_focus",
-                            "capital_delta": -10,
-                            "energy_delta": -12,
-                            "entropy_delta": 0.01,
-                        },
-                        {
-                            "id": "m2_hedge",
-                            "label": "Keep both doors",
-                            "detail": "Leave an exit; progress slows.",
-                            "parent": "m1_focus",
-                            "capital_delta": -4,
-                            "energy_delta": -6,
-                            "entropy_delta": 0.03,
-                        },
-                        {
-                            "id": "m2_stall",
-                            "label": "Stuck waiting",
-                            "detail": "Wait for a signal that will not arrive on its own.",
-                            "parent": "m1_drift",
-                            "capital_delta": -1,
-                            "energy_delta": -5,
-                            "entropy_delta": 0.05,
-                        },
-                    ],
-                },
-                {
-                    "month": 3,
-                    "label": "Month 3",
-                    "nodes": [
-                        {
-                            "id": "m3_proof",
-                            "label": "Show proof",
-                            "detail": "Make one visible result that the direction holds.",
-                            "parent": "m2_commit",
-                            "capital_delta": 5,
-                            "energy_delta": -10,
-                            "entropy_delta": -0.03,
-                        },
-                        {
-                            "id": "m3_rethink",
-                            "label": "Rewrite it",
-                            "detail": "Admit the hedge failed; reopen month 1’s fork.",
-                            "parent": "m2_hedge",
-                            "capital_delta": -6,
-                            "energy_delta": -9,
-                            "entropy_delta": 0.02,
-                        },
-                        {
-                            "id": "m3_fade",
-                            "label": "Quiet exit",
-                            "detail": "The topic leaves your life; the cost has already landed.",
-                            "parent": "m2_stall",
-                            "capital_delta": -2,
-                            "energy_delta": -4,
-                            "entropy_delta": 0.06,
-                        },
-                    ],
-                },
-            ]
-        },
+        "future": {"months": future_months},
         "history": [],
-        "meta": {"today": today, "horizon_months": 3},
+        "meta": {"today": today, "horizon_months": months},
     }
 
 
@@ -204,8 +213,46 @@ class LifePathEngine:
             data = json.loads(self._path.read_text(encoding="utf-8"))
             if isinstance(data, dict) and data.get("future"):
                 data.setdefault("history", [])
+                data.setdefault("meta", {})
+                data["meta"].setdefault("horizon_months", DEFAULT_HORIZON)
+                if self._is_legacy_shape(data):
+                    return self._upgrade_legacy(data)
                 return data
         seed = _default_seed(self._state)
+        self.save(seed)
+        return seed
+
+    def _is_legacy_shape(self, data: dict[str, Any]) -> bool:
+        if int(data.get("version") or 1) < 2:
+            return True
+        months = (data.get("future") or {}).get("months") or []
+        if not months:
+            return True
+        month1 = len(months[0].get("nodes") or [])
+        month2 = len(months[1].get("nodes") or []) if len(months) > 1 else 0
+        return month1 < 3 or month2 < 9
+
+    def _upgrade_legacy(self, data: dict[str, Any]) -> dict[str, Any]:
+        horizon = clamp_horizon((data.get("meta") or {}).get("horizon_months"))
+        seed = _default_seed(self._state, horizon)
+        history = list(data.get("history") or [])
+        if data.get("trigger") != "seed":
+            history.append(
+                {
+                    "id": uuid.uuid4().hex[:10],
+                    "archived_at": _now_iso(),
+                    "reason": data.get("trigger") or "manual",
+                    "summary": data.get("summary", ""),
+                    "today_label": data.get("today_label", ""),
+                    "past": data.get("past", {}),
+                    "future": data.get("future", {}),
+                    "generated_at": data.get("generated_at"),
+                    "trigger": data.get("trigger"),
+                    "horizon_months": (data.get("meta") or {}).get("horizon_months"),
+                }
+            )
+        seed["history"] = history[-12:]
+        seed["trigger"] = "upgrade"
         self.save(seed)
         return seed
 
@@ -224,8 +271,20 @@ class LifePathEngine:
                 return data
         return data
 
-    def regenerate(self, *, reason: str, archive: bool = True, lang: str = "en") -> dict[str, Any]:
+    def regenerate(
+        self,
+        *,
+        reason: str,
+        archive: bool = True,
+        lang: str = "en",
+        months: int | None = None,
+    ) -> dict[str, Any]:
         current = self.load_or_seed()
+        horizon = clamp_horizon(
+            months
+            if months is not None
+            else (current.get("meta") or {}).get("horizon_months")
+        )
         history = list(current.get("history") or [])
         if archive and current.get("trigger") != "seed":
             history.append(
@@ -234,21 +293,21 @@ class LifePathEngine:
                     "archived_at": _now_iso(),
                     "reason": reason,
                     "summary": current.get("summary", ""),
-                    "today_label": current.get("today_label", "今天"),
+                    "today_label": current.get("today_label", "today"),
                     "past": current.get("past", {}),
                     "future": current.get("future", {}),
                     "generated_at": current.get("generated_at"),
                     "trigger": current.get("trigger"),
+                    "horizon_months": (current.get("meta") or {}).get("horizon_months"),
                 }
             )
-            # Keep last 12 archives
             history = history[-12:]
 
         memory_hits = self._memory.search_relevant_events(
-            "未来三个月 重要决定 人生路径 工作 关系 健康 金钱",
+            "future months important decisions life path work love health money 未来 决定 工作 关系 健康",
             limit=8,
         )
-        mem_block = "（暂无浇灌材料）"
+        mem_block = "(no watered material yet)" if lang != "zh" else "（暂无浇灌材料）"
         if memory_hits:
             parts = []
             for i, h in enumerate(memory_hits, start=1):
@@ -258,88 +317,90 @@ class LifePathEngine:
                 )
             mem_block = "\n\n".join(parts)
 
-        # Fold previous future into closed past branches when archiving
         past = current.get("past") or {"trunk": [], "closed": []}
         if archive and current.get("trigger") != "seed":
             past = self._fold_future_into_past(past, current.get("future") or {})
 
+        later_rule = ""
+        if horizon >= 3:
+            later_rule = (
+                f"- Months 3–{horizon}: exactly 9 nodes each. Each node continues "
+                "ONE of the month-2 lives (parent = that month-2 id, then 1:1 down the chain). "
+                "Do not explode into 27 forks.\n"
+            )
+
         lang_line = (
-            "所有 summary、label、detail 用中文。"
+            "所有 summary、label、detail 用中文。标签像一句能说出口的话，不要分类标题。"
             if lang == "zh"
-            else "Write every summary, label, and detail in English."
+            else "Write every summary, label, and detail in English. Labels should sound speakable, not like category titles."
         )
         json_sys = (
-            "只输出合法 JSON。不要 Markdown 说明。语言用中文。"
+            "只输出合法 JSON。不要 Markdown。语言用中文。"
             if lang == "zh"
             else "Output valid JSON only. No markdown commentary. All strings in English."
         )
         prompt = (
-            "You are Digital Twin's life-path cartographer. From the user's memory and physical state, "
-            "output a branching map of important nodes for the next 3 months (JSON only).\n"
+            "You are Digital Twin's cartographer of lives — not a mind-map generator.\n"
+            "From the user's memory and physical state, draw a branching path of lives they could actually walk.\n"
             f"{lang_line}\n"
-            "结构必须严格为：\n"
+            f"Horizon: the next {horizon} month(s).\n"
+            "Shape (strict):\n"
+            "- Month 1: exactly 3 nodes. These are three real choices from TODAY. No parent field.\n"
+            "- Month 2: exactly 9 nodes. Each month-1 node has exactly 3 children (parent = that month-1 id).\n"
+            f"{later_rule}"
+            "This is a river delta, not an org chart: uneven, specific, a little tender.\n"
+            "JSON shape:\n"
             "{\n"
-            '  "summary": "一句话总览",\n'
-            '  "today_label": "今天节点短标签",\n'
+            '  "summary": "one warm sentence",\n'
+            '  "today_label": "short name for today",\n'
             '  "past": {\n'
-            '    "trunk": [{"id":"...", "label":"...", "detail":"..."}],\n'
-            '    "closed": [{"id":"...", "from":"trunk-id或today", "label":"...", "detail":"..."}]\n'
+            '    "trunk": [{"id":"...","label":"...","detail":"..."}],\n'
+            '    "closed": [{"id":"...","from":"trunk-id or today","label":"...","detail":"..."}]\n'
             "  },\n"
-            '  "future": {\n'
-            '    "months": [\n'
-            "      {\n"
-            '        "month": 1, "label": "第 1 月",\n'
-            '        "nodes": [{"id":"m1_a","label":"...","detail":"...","capital_delta":0,'
-            '"energy_delta":0,"entropy_delta":0}]\n'
-            "      },\n"
-            "      { \"month\": 2, \"label\": \"第 2 月\", \"nodes\": ["
-            "{\"id\":\"m2_a\",\"label\":\"...\",\"detail\":\"...\",\"parent\":\"m1_a\","
-            '"capital_delta":0,"energy_delta":0,"entropy_delta":0}] },\n'
-            "      { \"month\": 3, \"label\": \"第 3 月\", \"nodes\": ["
-            "{\"id\":\"m3_a\",\"label\":\"...\",\"detail\":\"...\",\"parent\":\"m2_a\","
-            '"capital_delta":0,"energy_delta":0,"entropy_delta":0}] }\n'
-            "    ]\n"
-            "  }\n"
+            '  "future": { "months": [ { "month": 1, "label": "Month 1", "nodes": ['
+            '{"id":"m1_a","label":"...","detail":"...","capital_delta":0,"energy_delta":0,"entropy_delta":0}'
+            "] } ] }\n"
             "}\n"
-            "规则：\n"
-            "- past.trunk：到达今天的主路径，2～5 个节点（可吸收历史）。\n"
-            "- past.closed：已关闭的岔路，2～6 条。\n"
-            "- future：每月 2～3 个开放节点；month 2/3 必须用 parent 指向上月节点 id。\n"
-            "- 标签短（≤14字），detail 一句刺骨说明。\n"
-            "- 结合物理状态，delta 要合理。\n"
-            f"当前物理：capital={self._state.capital:.1f}, energy={self._state.energy:.1f}, "
+            "Rules:\n"
+            "- past.trunk: 2–4 nodes that led here.\n"
+            "- past.closed: 2–5 doors already shut.\n"
+            "- ids unique. month 2+ nodes MUST set parent.\n"
+            "- label: 2–6 words (or ≤10 Chinese characters). Concrete. Not 'Career' / 'Health' / 'Plan A'.\n"
+            "- detail: one sensory sentence — a room, a cost, a morning. Not a strategy bullet.\n"
+            "- deltas must fit the physical state.\n"
+            f"Physical now: capital={self._state.capital:.1f}, energy={self._state.energy:.1f}, "
             f"entropy_rate={self._state.entropy_rate:.2f}\n"
-            f"触发原因：{reason}\n"
-            f"相关记忆：\n{mem_block}\n"
-            f"既有 past（可改写但保留连续感）：\n{json.dumps(past, ensure_ascii=False)[:2500]}"
+            f"Why this map: {reason}\n"
+            f"Memory:\n{mem_block}\n"
+            f"Existing past (keep continuity):\n{json.dumps(past, ensure_ascii=False)[:2500]}"
         )
 
         resp = self._client.chat.completions.create(
             model=self._model,
             messages=[
-                {
-                    "role": "system",
-                    "content": json_sys,
-                },
+                {"role": "system", "content": json_sys},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.55,
-            max_tokens=2200,
+            temperature=0.7,
+            max_tokens=min(8000, 2800 + horizon * 700),
         )
         raw = (resp.choices[0].message.content or "").strip()
         parsed = _extract_json(raw)
         if not parsed:
-            # Fall back to seed-shaped future but keep archived history
-            parsed = _default_seed(self._state)
-            parsed["summary"] = "模型未返回合法 JSON，沿用骨架路径。"
+            parsed = _default_seed(self._state, horizon)
+            parsed["summary"] = (
+                "模型未返回合法 JSON，沿用骨架路径。"
+                if lang == "zh"
+                else "The model didn't return valid JSON; keeping the sketched path."
+            )
             parsed["trigger"] = reason
 
         data = {
-            "version": 1,
+            "version": 2,
             "generated_at": _now_iso(),
             "trigger": reason,
             "summary": parsed.get("summary") or current.get("summary") or "",
-            "today_label": parsed.get("today_label") or "你的人生 · 今天",
+            "today_label": parsed.get("today_label") or ("你在这里" if lang == "zh" else "You, here"),
             "state_snapshot": {
                 "capital": self._state.capital,
                 "energy": self._state.energy,
@@ -350,11 +411,11 @@ class LifePathEngine:
             "history": history,
             "meta": {
                 "today": datetime.now().strftime("%Y-%m-%d"),
-                "horizon_months": 3,
+                "horizon_months": horizon,
                 "memory_hits": len(memory_hits),
             },
         }
-        self._normalize(data)
+        self._normalize(data, horizon=horizon, lang=lang)
         self.save(data)
         return data
 
@@ -363,30 +424,28 @@ class LifePathEngine:
     ) -> dict[str, Any]:
         trunk = list(past.get("trunk") or [])
         closed = list(past.get("closed") or [])
-        # Promote first node of each month as a faint trunk echo, rest as closed
-        for month in future.get("months") or []:
-            nodes = month.get("nodes") or []
-            if not nodes:
-                continue
-            head = nodes[0]
+        months = future.get("months") or []
+        first = (months[0].get("nodes") or []) if months else []
+        if first:
+            head = first[0]
             trunk.append(
                 {
                     "id": f"hist_{head.get('id', uuid.uuid4().hex[:6])}",
-                    "label": f"曾推演·{head.get('label', '节点')}",
+                    "label": head.get("label", ""),
                     "detail": head.get("detail", ""),
                 }
             )
-            for n in nodes[1:]:
+            origin = trunk[-1]["id"] if trunk else "today"
+            for n in first:
                 closed.append(
                     {
                         "id": f"closed_{n.get('id', uuid.uuid4().hex[:6])}",
-                        "from": trunk[-1]["id"] if trunk else "today",
-                        "label": n.get("label", "岔路"),
-                        "detail": n.get("detail", "浇灌后关闭的旧未来。"),
+                        "from": origin,
+                        "label": n.get("label", ""),
+                        "detail": n.get("detail", ""),
                     }
                 )
-        # Cap sizes
-        return {"trunk": trunk[-6:], "closed": closed[-10:]}
+        return {"trunk": trunk[-5:], "closed": closed[-8:]}
 
     def apply_edits(
         self,
@@ -436,15 +495,29 @@ class LifePathEngine:
         self.save(data)
         return data
 
-    def _normalize(self, data: dict[str, Any]) -> None:
+    def _normalize(self, data: dict[str, Any], *, horizon: int, lang: str = "en") -> None:
         past = data.setdefault("past", {})
         past.setdefault("trunk", [])
         past.setdefault("closed", [])
         future = data.setdefault("future", {})
-        months = future.get("months") or []
-        # Ensure month numbers
-        for i, m in enumerate(months, start=1):
-            m.setdefault("month", i)
-            m.setdefault("label", f"第 {i} 月")
+        months = list(future.get("months") or [])
+        month_word = "月" if lang == "zh" else "Month"
+        by_num: dict[int, dict[str, Any]] = {}
+        for m in months:
+            try:
+                num = int(m.get("month") or 0)
+            except (TypeError, ValueError):
+                continue
+            if num:
+                by_num[num] = m
+        ordered = []
+        for i in range(1, horizon + 1):
+            m = by_num.get(i) or {"month": i, "nodes": []}
+            m["month"] = i
+            m.setdefault("label", f"{month_word} {i}" if lang != "zh" else f"第 {i} 月")
             m.setdefault("nodes", [])
+            ordered.append(m)
+        future["months"] = ordered
         data.setdefault("history", [])
+        meta = data.setdefault("meta", {})
+        meta["horizon_months"] = horizon

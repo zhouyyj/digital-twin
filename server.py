@@ -75,7 +75,7 @@ class AppRuntime:
         self.upload_dir.mkdir(parents=True, exist_ok=True)
 
     def after_water(self, reason: str, lang: str = "en") -> dict[str, Any]:
-        """Archive current future into history and grow a new 3-month tree."""
+        """Archive current future into history and grow a new tree."""
         try:
             return self.life_path.regenerate(reason=reason, archive=True, lang=lang)
         except Exception as exc:
@@ -115,6 +115,16 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Digital Twin", lifespan=lifespan)
 WEB_DIR = get_project_root() / "web"
 app.mount("/assets", StaticFiles(directory=WEB_DIR), name="assets")
+
+
+@app.middleware("http")
+async def no_store_ui(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    return response
 
 
 def _ui_lang(request: Request) -> str:
@@ -175,7 +185,10 @@ class SimulateIn(BaseModel):
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(WEB_DIR / "index.html")
+    return FileResponse(
+        WEB_DIR / "index.html",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
 
 
 @app.get("/api/health")
@@ -367,10 +380,13 @@ def get_life_path(request: Request, refresh: bool = False) -> dict[str, Any]:
 
 
 @app.post("/api/life-path/regenerate")
-def regen_life_path(request: Request) -> dict[str, Any]:
+def regen_life_path(request: Request, months: int | None = None) -> dict[str, Any]:
     rt = _rt()
     return rt.life_path.regenerate(
-        reason="manual", archive=True, lang=_ui_lang(request)
+        reason="manual",
+        archive=True,
+        lang=_ui_lang(request),
+        months=months,
     )
 
 

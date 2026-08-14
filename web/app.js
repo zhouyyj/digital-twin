@@ -29,6 +29,27 @@
   const historyCount = document.getElementById("historyCount");
   const regenPathBtn = document.getElementById("regenPathBtn");
   const resetCamBtn = document.getElementById("resetCamBtn");
+  const horizonMinus = document.getElementById("horizonMinus");
+  const horizonPlus = document.getElementById("horizonPlus");
+  const horizonValue = document.getElementById("horizonValue");
+  const pathsTitle = document.getElementById("pathsTitle");
+  const HORIZON_KEY = "digital-twin-horizon";
+
+  function clampHorizon(n) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return 3;
+    return Math.min(6, Math.max(2, Math.round(v)));
+  }
+
+  function readSavedHorizon() {
+    try {
+      return clampHorizon(localStorage.getItem(HORIZON_KEY) || 3);
+    } catch {
+      return 3;
+    }
+  }
+
+  let horizon = readSavedHorizon();
   const inspector = document.getElementById("inspector");
   const inspectorClose = document.getElementById("inspectorClose");
   const inspLabel = document.getElementById("inspLabel");
@@ -87,6 +108,7 @@
     sendBtn.disabled = on;
     noteBtn.disabled = on;
     regenPathBtn.disabled = on;
+    syncHorizonChrome();
   }
 
   function showView(name) {
@@ -132,22 +154,39 @@
     saveTimer = setTimeout(() => persistEdits(selectedNode), 450);
   }
 
+  function applyLocalEdit(node) {
+    if (!lifePathData || !node) return;
+    if (node.id === "today") {
+      lifePathData.today_label = node.label || "";
+      if (node.detail != null) lifePathData.summary = node.detail;
+      return;
+    }
+    const visit = (n) => {
+      if (n && n.id === node.id) {
+        n.label = node.label;
+        n.detail = node.detail;
+      }
+    };
+    (lifePathData.past?.trunk || []).forEach(visit);
+    (lifePathData.past?.closed || []).forEach(visit);
+    (lifePathData.future?.months || []).forEach((m) => (m.nodes || []).forEach(visit));
+  }
+
   inspLabel.addEventListener("input", () => {
     if (!selectedNode) return;
     selectedNode.label = inspLabel.value;
-    const text = pathSvg.querySelector(`.path-node[data-id="${selectedNode.id}"] text`);
-    if (text) text.textContent = (inspLabel.value || "").slice(0, 12);
-    if (selectedNode.id === "today") {
-      pathSummary.textContent = inspDetail.value || lifePathData?.summary || "";
-    }
+    const title = pathSvg.querySelector(`.path-node[data-id="${selectedNode.id}"] text`);
+    const first = title?.querySelector("tspan") || title;
+    if (first) first.textContent = inspLabel.value;
+    applyLocalEdit(selectedNode);
     queueEdits();
   });
 
   inspDetail.addEventListener("input", () => {
     if (!selectedNode) return;
     selectedNode.detail = inspDetail.value;
-    if (selectedNode.id === "today" && lifePathData) {
-      lifePathData.summary = inspDetail.value;
+    applyLocalEdit(selectedNode);
+    if (selectedNode.id === "today") {
       pathSummary.textContent = inspDetail.value;
     }
     queueEdits();
@@ -240,6 +279,35 @@
       labels: pathLabels,
     });
     historyCount.textContent = String((data.history || []).length);
+    if (!archive) {
+      const fromMap = data?.meta?.horizon_months;
+      if (fromMap) setHorizon(fromMap, { persist: true, silent: true });
+    }
+  }
+
+  function syncHorizonChrome() {
+    if (pathsTitle) pathsTitle.textContent = t("pathsTitle", horizon);
+    if (horizonValue) horizonValue.textContent = t("horizonValue", horizon);
+    if (horizonMinus) horizonMinus.disabled = busy || horizon <= 2;
+    if (horizonPlus) horizonPlus.disabled = busy || horizon >= 6;
+    horizonMinus?.setAttribute("aria-label", t("horizonLess"));
+    horizonPlus?.setAttribute("aria-label", t("horizonMore"));
+    document.querySelector(".horizon-ctl")?.setAttribute("aria-label", t("horizonAria"));
+  }
+
+  function setHorizon(next, { persist = true, silent = false } = {}) {
+    const clamped = clampHorizon(next);
+    const changed = clamped !== horizon;
+    horizon = clamped;
+    if (persist) {
+      try {
+        localStorage.setItem(HORIZON_KEY, String(horizon));
+      } catch {
+        /* ignore */
+      }
+    }
+    syncHorizonChrome();
+    if (!silent && changed) regenLifePath();
   }
 
   async function loadLifePath() {
@@ -465,12 +533,12 @@
     pathSvg._resetCamera?.();
   });
 
-  regenPathBtn.addEventListener("click", async () => {
+  async function regenLifePath() {
     if (busy) return;
     setBusy(true);
     regenPathBtn.textContent = t("regenBusy");
     try {
-      const res = await fetch("/api/life-path/regenerate", {
+      const res = await fetch(`/api/life-path/regenerate?months=${horizon}`, {
         method: "POST",
         headers: apiHeaders(),
       });
@@ -485,7 +553,11 @@
       regenPathBtn.textContent = t("regen");
       setBusy(false);
     }
-  });
+  }
+
+  regenPathBtn.addEventListener("click", () => regenLifePath());
+  horizonMinus.addEventListener("click", () => setHorizon(horizon - 1));
+  horizonPlus.addEventListener("click", () => setHorizon(horizon + 1));
 
   function openModal(mode) {
     modalMode = mode;
@@ -544,9 +616,11 @@
       healthLine.textContent = t(healthKey);
       if (!busy) dropStatus.textContent = t("dropWaiting");
       regenPathBtn.textContent = t("regen");
+      syncHorizonChrome();
       if (lifePathData) paintLifePath(lifePathData, { archive: viewingArchive || undefined });
     });
   });
 
+  syncHorizonChrome();
   boot();
 })();

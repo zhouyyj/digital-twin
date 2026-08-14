@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterShellExecution": [
+      {
+        "command": ".cursor/hooks/strip-cursor-coauthor.py",
+        "matcher": "git\\s+commit"
+      }
+    ]
+  }
+}

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Digital Twin — preview</title>
+  <meta name="description" content="Digital Twin: water it with diaries and photos, then walk the months ahead." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,550;9..144,650&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f4ece2;
+      --cream: #faf6f0;
+      --ink: #3d3229;
+      --muted: #8a7668;
+      --terracotta: #c4785a;
+      --line: rgba(90, 64, 48, 0.12);
+      --shadow: 0 18px 40px rgba(80, 52, 36, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Noto Sans SC", "Songti SC", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 520px at 88% -8%, rgba(212, 165, 116, 0.28), transparent 55%),
+        linear-gradient(180deg, #f7f1e8 0%, var(--paper) 42%, #efe4d6 100%);
+      min-height: 100vh;
+      padding: 2rem 1.25rem 3rem;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    .kicker {
+      color: var(--terracotta);
+      letter-spacing: 0.06em;
+      font-size: 0.82rem;
+      margin-bottom: 0.35rem;
+    }
+    h1 {
+      font-family: Fraunces, "Noto Serif SC", serif;
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      line-height: 1.05;
+      margin-bottom: 0.55rem;
+    }
+    .lead {
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 42rem;
+      margin-bottom: 1.4rem;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.62rem 1rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 0.92rem;
+      border: 1px solid var(--line);
+      background: var(--cream);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+    .btn.primary {
+      background: #efe0d4;
+      border-color: rgba(196, 120, 90, 0.35);
+    }
+    .shot {
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      background: var(--cream);
+    }
+    .shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .note {
+      margin-top: 1rem;
+      font-size: 0.86rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .features {
+      margin-top: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.85rem;
+    }
+    .card {
+      background: rgba(250, 246, 240, 0.85);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 1rem 1.05rem;
+    }
+    .card h2 {
+      font-family: Fraunces, "Noto Serif SC", serif;
+      font-size: 1.05rem;
+      margin-bottom: 0.35rem;
+    }
+    .card p {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <p class="kicker">Digital avatar</p>
+    <h1>Digital Twin</h1>
+    <p class="lead">
+      A local-first twin you water with diaries, photos, and documents.
+      It remembers, pushes back gently, and maps the months ahead as branching paths — not a mind map.
+    </p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/zhouyyj/digital-twin">View on GitHub</a>
+      <a class="btn" href="https://github.com/zhouyyj/digital-twin#setup">Run locally</a>
+    </div>
+    <figure class="shot">
+      <img src="./preview.png" alt="Digital Twin web UI — chat, watering, and life path map" />
+    </figure>
+    <p class="note">
+      Live demo requires your own OpenAI key and runs on your machine (<code>uvicorn server:app --port 8787</code>).
+      This page is a static preview for visitors.
+    </p>
+    <section class="features">
+      <article class="card">
+        <h2>Water memory</h2>
+        <p>Drag diaries, PDFs, and images in. The twin chunks and embeds them locally.</p>
+      </article>
+      <article class="card">
+        <h2>Life path</h2>
+        <p>Three forks from today, three from each — editable pebble nodes with archived maps.</p>
+      </article>
+      <article class="card">
+        <h2>Physical state</h2>
+        <p>Reserve, energy, and chaos constrain deduction and simulation replies.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
