@@ -12,7 +12,7 @@ from core.feeder import PersonalFeeder
 from core.memory_manager import MemoryManager
 from core.sandbox import CognitiveSandbox
 from core.state_machine import (
-    PHYSICAL_ALERT_CN,
+    PHYSICAL_ALERT,
     UserState,
     deduction_instruction_block,
     evaluate_deduction_reply,
@@ -20,8 +20,10 @@ from core.state_machine import (
 )
 
 SYSTEM_PROMPT = (
-    "你是我的数字分身，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
-    "你可以调用用户主动浇灌进记忆的日记、文档与图像描述；不要假装看见未被提供的私料。"
+    "You are my digital twin. Speak with extreme restraint and precision; "
+    "use questions to cut into my thinking. You may use diaries, documents, "
+    "and image descriptions I have watered into memory; do not pretend to see "
+    "private material that was never given. Reply in English."
 )
 
 # System chrome: dim green; mirror clone reply: cyan
@@ -44,12 +46,12 @@ def _ensure_utf8_stdio() -> None:
 
 def _print_banner() -> None:
     title = f"{STYLE_SYSTEM}Digital Twin{STYLE_RESET}"
-    sub = f"{Style.DIM}数字孪生与认知推演 · Phase 4（浇灌）{STYLE_RESET}"
+    sub = f"{Style.DIM}Digital twin and cognitive sandbox · Phase 4 (watering){STYLE_RESET}"
     print(f"\n{title}\n{sub}\n")
     print(
-        f"{STYLE_SYSTEM}输入你的问题，"
-        f"{STYLE_DIM}exit / quit / Ctrl+D 结束 · /state · /board · /simulate · "
-        f"/water <路径|note:…> · /memory{STYLE_RESET}\n"
+        f"{STYLE_SYSTEM}Ask something. "
+        f"{STYLE_DIM}exit / quit / Ctrl+D to leave · /state · /board · /simulate · "
+        f"/water <path|note:…> · /memory{STYLE_RESET}\n"
     )
 
 
@@ -93,7 +95,7 @@ def _collect_stream_reply(client: OpenAI, model: str, messages: list[dict]) -> s
 
 
 def _print_user_state(state: UserState) -> None:
-    print(f"\n{STYLE_SYSTEM}── 物理残余 (/state) ──{STYLE_RESET}")
+    print(f"\n{STYLE_SYSTEM}── Physical remainder (/state) ──{STYLE_RESET}")
     print(f"{STYLE_SYSTEM}capital       : {state.capital:.2f}{STYLE_RESET}")
     print(f"{STYLE_SYSTEM}energy        : {state.energy:.2f}{STYLE_RESET}")
     print(f"{STYLE_SYSTEM}entropy_rate  : {state.entropy_rate:.2f}{STYLE_RESET}\n")
@@ -113,11 +115,11 @@ def _memory_augmented_user_content(user_line: str, memory: MemoryManager) -> str
         lines.append(f"[{i}] {ts} | {et}{src_bit}\n{body}")
     block = "\n\n".join(lines)
     return (
-        "以下是与当前输入相关的历史事件与浇灌材料（含 ISO 时间戳），供你对照推演；"
-        "忽略与当下无关的信息。\n\n"
+        "Here are related past events and watered material (ISO timestamps) "
+        "for you to use. Ignore anything that does not bear on this turn.\n\n"
         f"{block}\n\n"
         "---\n\n"
-        f"【当前输入】\n{user_line}"
+        f"[Current input]\n{user_line}"
     )
 
 
@@ -148,15 +150,15 @@ def main() -> int:
 
     while True:
         try:
-            user_line = input(f"{STYLE_SYSTEM}你 › {STYLE_RESET}").strip()
+            user_line = input(f"{STYLE_SYSTEM}you › {STYLE_RESET}").strip()
         except (EOFError, KeyboardInterrupt):
-            print(f"\n{STYLE_SYSTEM}会话结束。{STYLE_RESET}")
+            print(f"\n{STYLE_SYSTEM}Session ended.{STYLE_RESET}")
             break
 
         if not user_line:
             continue
         if user_line.lower() in {"exit", "quit", ":q"}:
-            print(f"{STYLE_SYSTEM}会话结束。{STYLE_RESET}")
+            print(f"{STYLE_SYSTEM}Session ended.{STYLE_RESET}")
             break
 
         if user_line == "/state":
@@ -165,8 +167,8 @@ def main() -> int:
 
         if user_line == "/memory":
             print(
-                f"{STYLE_SYSTEM}记忆库存：{memory.count_events()} 条事件"
-                f"（对话 + 浇灌材料）{STYLE_RESET}\n"
+                f"{STYLE_SYSTEM}Memory store: {memory.count_events()} events"
+                f" (chat + watered material){STYLE_RESET}\n"
             )
             continue
 
@@ -179,13 +181,13 @@ def main() -> int:
                 results = feeder.water(target)
             except Exception as exc:
                 print(
-                    f"{Fore.RED}[浇灌失败] {exc}{Style.RESET_ALL}",
+                    f"{Fore.RED}[watering failed] {exc}{Style.RESET_ALL}",
                     file=sys.stderr,
                 )
                 continue
             total = sum(r.chunks for r in results)
             print(
-                f"{STYLE_SYSTEM}浇灌完成：{len(results)} 个文件 / 共 {total} 块写入记忆。"
+                f"{STYLE_SYSTEM}Watered: {len(results)} file(s) / {total} chunks into memory."
                 f"{STYLE_RESET}\n"
             )
             continue
@@ -196,7 +198,7 @@ def main() -> int:
                 sandbox.run_board(dilemma)
             except Exception as exc:
                 print(
-                    f"{Fore.RED}[沙盒 /board 错误] {exc}{Style.RESET_ALL}",
+                    f"{Fore.RED}[sandbox /board error] {exc}{Style.RESET_ALL}",
                     file=sys.stderr,
                 )
             continue
@@ -207,7 +209,7 @@ def main() -> int:
                 sandbox.run_simulate(choice)
             except Exception as exc:
                 print(
-                    f"{Fore.RED}[沙盒 /simulate 错误] {exc}{Style.RESET_ALL}",
+                    f"{Fore.RED}[sandbox /simulate error] {exc}{Style.RESET_ALL}",
                     file=sys.stderr,
                 )
             continue
@@ -220,19 +222,19 @@ def main() -> int:
         turn_messages = [*messages, {"role": "user", "content": user_for_model}]
 
         try:
-            print(f"{STYLE_CLONE}镜 › {STYLE_RESET}", end="", flush=True)
+            print(f"{STYLE_CLONE}twin › {STYLE_RESET}", end="", flush=True)
             if deduction_mode:
                 reply_full = _collect_stream_reply(client, model, turn_messages)
                 display, outcome = evaluate_deduction_reply(user_state, reply_full)
                 if outcome == "intercepted":
                     print(
-                        f"{Fore.RED}{PHYSICAL_ALERT_CN}{Style.RESET_ALL}\n",
+                        f"{Fore.RED}{PHYSICAL_ALERT}{Style.RESET_ALL}\n",
                         flush=True,
                     )
                     continue
                 if outcome == "no_json":
                     print(
-                        f"{Fore.YELLOW}[系统] 未解析到有效的状态消耗 JSON，物理数值未变更。"
+                        f"{Fore.YELLOW}[System] No valid cost JSON found; physical numbers were left unchanged."
                         f"{Style.RESET_ALL}",
                         file=sys.stderr,
                     )
@@ -242,7 +244,7 @@ def main() -> int:
                 reply = _stream_reply(client, model, turn_messages)
         except Exception as exc:
             print(
-                f"{Fore.RED}[API 错误] {exc}{Style.RESET_ALL}",
+                f"{Fore.RED}[API error] {exc}{Style.RESET_ALL}",
                 file=sys.stderr,
             )
             continue
@@ -255,7 +257,7 @@ def main() -> int:
             memory.add_event(reply, "AI_Intervention")
         except Exception as exc:
             print(
-                f"{Fore.RED}[记忆写入失败] {exc}{Style.RESET_ALL}",
+                f"{Fore.RED}[memory write failed] {exc}{Style.RESET_ALL}",
                 file=sys.stderr,
             )
 

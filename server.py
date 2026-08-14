@@ -29,7 +29,7 @@ from core.life_path import LifePathEngine
 from core.memory_manager import MemoryManager
 from core.sandbox import CognitiveSandbox
 from core.state_machine import (
-    PHYSICAL_ALERT_CN,
+    PHYSICAL_ALERT,
     UserState,
     deduction_instruction_block,
     evaluate_deduction_reply,
@@ -37,8 +37,10 @@ from core.state_machine import (
 )
 
 SYSTEM_PROMPT = (
-    "你是我的数字分身，说话极其克制、一针见血，习惯用提问来剖析我的思维逻辑。"
-    "你可以调用用户主动浇灌进记忆的日记、文档与图像描述；不要假装看见未被提供的私料。"
+    "You are my digital twin. Speak with extreme restraint and precision; "
+    "use questions to cut into my thinking. You may use diaries, documents, "
+    "and image descriptions I have watered into memory; do not pretend to see "
+    "private material that was never given. Reply in English."
 )
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._\-\u4e00-\u9fff]+")
@@ -74,10 +76,10 @@ class AppRuntime:
         self.upload_dir = get_project_root() / ".uploads"
         self.upload_dir.mkdir(parents=True, exist_ok=True)
 
-    def after_water(self, reason: str, lang: str = "en") -> dict[str, Any]:
+    def after_water(self, reason: str) -> dict[str, Any]:
         """Archive current future into history and grow a new tree."""
         try:
-            return self.life_path.regenerate(reason=reason, archive=True, lang=lang)
+            return self.life_path.regenerate(reason=reason, archive=True)
         except Exception as exc:
             data = self.life_path.load_or_seed()
             data["regen_error"] = str(exc)
@@ -127,17 +129,6 @@ async def no_store_ui(request: Request, call_next):
     return response
 
 
-def _ui_lang(request: Request) -> str:
-    raw = (request.headers.get("x-ui-lang") or "en").lower()
-    return "zh" if raw.startswith("zh") else "en"
-
-
-def _lang_instruction(lang: str) -> str:
-    if lang == "zh":
-        return "用中文回复，除非用户改用其他语言。"
-    return "Reply in English unless the user writes in another language."
-
-
 def _rt() -> AppRuntime:
     if runtime is None:
         err = getattr(app.state, "boot_error", None) or "Server not ready."
@@ -159,11 +150,11 @@ def _memory_augmented(user_line: str, memory: MemoryManager) -> str:
         lines.append(f"[{i}] {ts} | {et}{src_bit}\n{body}")
     block = "\n\n".join(lines)
     return (
-        "以下是与当前输入相关的历史事件与浇灌材料（含 ISO 时间戳），供你对照推演；"
-        "忽略与当下无关的信息。\n\n"
+        "Here are related past events and watered material (ISO timestamps) "
+        "for you to use. Ignore anything that does not bear on this turn.\n\n"
         f"{block}\n\n"
         "---\n\n"
-        f"【当前输入】\n{user_line}"
+        f"[Current input]\n{user_line}"
     )
 
 
@@ -208,9 +199,8 @@ def get_state() -> dict[str, Any]:
 
 
 @app.post("/api/chat")
-async def chat(request: Request, body: ChatIn) -> StreamingResponse:
+async def chat(body: ChatIn) -> StreamingResponse:
     rt = _rt()
-    lang = _ui_lang(request)
     user_line = body.message.strip()
     if not user_line:
         raise HTTPException(status_code=400, detail="Empty message")
@@ -221,14 +211,14 @@ async def chat(request: Request, body: ChatIn) -> StreamingResponse:
         user_for_model = user_for_model + "\n\n" + deduction_instruction_block(rt.state)
     system = {
         "role": "system",
-        "content": rt.messages[0]["content"] + "\n" + _lang_instruction(lang),
+        "content": rt.messages[0]["content"],
     }
     turn_messages = [system, *rt.messages[1:], {"role": "user", "content": user_for_model}]
 
     async def gen() -> AsyncIterator[str]:
         try:
             if deduction_mode:
-                yield _sse({"type": "status", "text": "推演中…"})
+                yield _sse({"type": "status", "text": "Working through it…"})
                 stream = rt.client.chat.completions.create(
                     model=rt.model,
                     messages=turn_messages,
@@ -244,14 +234,14 @@ async def chat(request: Request, body: ChatIn) -> StreamingResponse:
                 full = "".join(buf)
                 display, outcome = evaluate_deduction_reply(rt.state, full)
                 if outcome == "intercepted":
-                    yield _sse({"type": "alert", "text": PHYSICAL_ALERT_CN})
+                    yield _sse({"type": "alert", "text": PHYSICAL_ALERT})
                     yield _sse({"type": "done", "state": asdict(rt.state)})
                     return
                 if outcome == "no_json":
                     yield _sse(
                         {
                             "type": "warn",
-                            "text": "未解析到有效的状态消耗 JSON，物理数值未变更。",
+                            "text": "No valid cost JSON found; physical numbers were left unchanged.",
                         }
                     )
                 reply = display
@@ -281,7 +271,7 @@ async def chat(request: Request, body: ChatIn) -> StreamingResponse:
                 rt.memory.add_event(user_line, "User_Thought")
                 rt.memory.add_event(reply, "AI_Intervention")
             except Exception as exc:
-                yield _sse({"type": "warn", "text": f"记忆写入失败：{exc}"})
+                yield _sse({"type": "warn", "text": f"Memory write failed: {exc}"})
 
             yield _sse(
                 {
@@ -299,10 +289,10 @@ async def chat(request: Request, body: ChatIn) -> StreamingResponse:
 
 
 @app.post("/api/water/note")
-def water_note(request: Request, body: NoteIn) -> dict[str, Any]:
+def water_note(body: NoteIn) -> dict[str, Any]:
     rt = _rt()
     results = rt.feeder.water(f"note: {body.note.strip()}")
-    life = rt.after_water("water:note", lang=_ui_lang(request))
+    life = rt.after_water("water:note")
     return {
         "ok": True,
         "results": [_result_dict(r) for r in results],
@@ -312,9 +302,7 @@ def water_note(request: Request, body: NoteIn) -> dict[str, Any]:
 
 
 @app.post("/api/water/upload")
-async def water_upload(
-    request: Request, files: list[UploadFile] = File(...)
-) -> dict[str, Any]:
+async def water_upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
     rt = _rt()
     if not files:
         raise HTTPException(status_code=400, detail="No files")
@@ -349,7 +337,7 @@ async def water_upload(
         for path in saved:
             all_results.extend(rt.feeder.water(str(path)))
 
-        life = rt.after_water("water:upload", lang=_ui_lang(request))
+        life = rt.after_water("water:upload")
         return {
             "ok": True,
             "results": [_result_dict(r) for r in all_results],
@@ -365,27 +353,25 @@ async def water_upload(
 
 
 @app.get("/api/life-path")
-def get_life_path(request: Request, refresh: bool = False) -> dict[str, Any]:
+def get_life_path(refresh: bool = False) -> dict[str, Any]:
     rt = _rt()
-    lang = _ui_lang(request)
     if refresh:
-        return rt.life_path.regenerate(reason="manual", archive=True, lang=lang)
+        return rt.life_path.regenerate(reason="manual", archive=True)
     data = rt.life_path.load_or_seed()
     if data.get("trigger") == "seed":
         try:
-            return rt.life_path.regenerate(reason="boot", archive=False, lang=lang)
+            return rt.life_path.regenerate(reason="boot", archive=False)
         except Exception:
             return data
     return data
 
 
 @app.post("/api/life-path/regenerate")
-def regen_life_path(request: Request, months: int | None = None) -> dict[str, Any]:
+def regen_life_path(months: int | None = None) -> dict[str, Any]:
     rt = _rt()
     return rt.life_path.regenerate(
         reason="manual",
         archive=True,
-        lang=_ui_lang(request),
         months=months,
     )
 
@@ -402,12 +388,10 @@ def patch_life_path(body: LifePathEdits) -> dict[str, Any]:
 
 
 @app.post("/api/board")
-def board(request: Request, body: BoardIn) -> dict[str, Any]:
+def board(body: BoardIn) -> dict[str, Any]:
     rt = _rt()
     rt.take_capture()
     dilemma = body.dilemma.strip()
-    if _ui_lang(request) == "en":
-        dilemma += "\n\nWrite all output in English."
     try:
         rt.sandbox.run_board(dilemma)
     except Exception as exc:
@@ -416,12 +400,10 @@ def board(request: Request, body: BoardIn) -> dict[str, Any]:
 
 
 @app.post("/api/simulate")
-def simulate(request: Request, body: SimulateIn) -> dict[str, Any]:
+def simulate(body: SimulateIn) -> dict[str, Any]:
     rt = _rt()
     rt.take_capture()
     choice = body.choice.strip()
-    if _ui_lang(request) == "en":
-        choice += "\n\nWrite all output in English."
     try:
         rt.sandbox.run_simulate(choice)
     except Exception as exc:

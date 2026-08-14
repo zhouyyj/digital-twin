@@ -304,10 +304,10 @@ class LifePathEngine:
             history = history[-12:]
 
         memory_hits = self._memory.search_relevant_events(
-            "future months important decisions life path work love health money 未来 决定 工作 关系 健康",
+            "future months important decisions life path work love health money",
             limit=8,
         )
-        mem_block = "(no watered material yet)" if lang != "zh" else "（暂无浇灌材料）"
+        mem_block = "(no watered material yet)"
         if memory_hits:
             parts = []
             for i, h in enumerate(memory_hits, start=1):
@@ -330,14 +330,11 @@ class LifePathEngine:
             )
 
         lang_line = (
-            "所有 summary、label、detail 用中文。标签像一句能说出口的话，不要分类标题。"
-            if lang == "zh"
-            else "Write every summary, label, and detail in English. Labels should sound speakable, not like category titles."
+            "Write every summary, label, and detail in English. "
+            "Labels should sound speakable, not like category titles."
         )
         json_sys = (
-            "只输出合法 JSON。不要 Markdown。语言用中文。"
-            if lang == "zh"
-            else "Output valid JSON only. No markdown commentary. All strings in English."
+            "Output valid JSON only. No markdown commentary. All strings in English."
         )
         prompt = (
             "You are Digital Twin's cartographer of lives — not a mind-map generator.\n"
@@ -365,7 +362,7 @@ class LifePathEngine:
             "- past.trunk: 2–4 nodes that led here.\n"
             "- past.closed: 2–5 doors already shut.\n"
             "- ids unique. month 2+ nodes MUST set parent.\n"
-            "- label: 2–6 words (or ≤10 Chinese characters). Concrete. Not 'Career' / 'Health' / 'Plan A'.\n"
+            "- label: 2–6 words. Concrete. Not 'Career' / 'Health' / 'Plan A'.\n"
             "- detail: one sensory sentence — a room, a cost, a morning. Not a strategy bullet.\n"
             "- deltas must fit the physical state.\n"
             f"Physical now: capital={self._state.capital:.1f}, energy={self._state.energy:.1f}, "
@@ -388,11 +385,7 @@ class LifePathEngine:
         parsed = _extract_json(raw)
         if not parsed:
             parsed = _default_seed(self._state, horizon)
-            parsed["summary"] = (
-                "模型未返回合法 JSON，沿用骨架路径。"
-                if lang == "zh"
-                else "The model didn't return valid JSON; keeping the sketched path."
-            )
+            parsed["summary"] = "The model didn't return valid JSON; keeping the sketched path."
             parsed["trigger"] = reason
 
         data = {
@@ -400,7 +393,7 @@ class LifePathEngine:
             "generated_at": _now_iso(),
             "trigger": reason,
             "summary": parsed.get("summary") or current.get("summary") or "",
-            "today_label": parsed.get("today_label") or ("你在这里" if lang == "zh" else "You, here"),
+            "today_label": parsed.get("today_label") or "You, here",
             "state_snapshot": {
                 "capital": self._state.capital,
                 "energy": self._state.energy,
@@ -415,7 +408,7 @@ class LifePathEngine:
                 "memory_hits": len(memory_hits),
             },
         }
-        self._normalize(data, horizon=horizon, lang=lang)
+        self._normalize(data, horizon=horizon)
         self.save(data)
         return data
 
@@ -495,13 +488,12 @@ class LifePathEngine:
         self.save(data)
         return data
 
-    def _normalize(self, data: dict[str, Any], *, horizon: int, lang: str = "en") -> None:
+    def _normalize(self, data: dict[str, Any], *, horizon: int) -> None:
         past = data.setdefault("past", {})
         past.setdefault("trunk", [])
         past.setdefault("closed", [])
         future = data.setdefault("future", {})
         months = list(future.get("months") or [])
-        month_word = "月" if lang == "zh" else "Month"
         by_num: dict[int, dict[str, Any]] = {}
         for m in months:
             try:
@@ -514,7 +506,7 @@ class LifePathEngine:
         for i in range(1, horizon + 1):
             m = by_num.get(i) or {"month": i, "nodes": []}
             m["month"] = i
-            m.setdefault("label", f"{month_word} {i}" if lang != "zh" else f"第 {i} 月")
+            m.setdefault("label", f"Month {i}")
             m.setdefault("nodes", [])
             ordered.append(m)
         future["months"] = ordered

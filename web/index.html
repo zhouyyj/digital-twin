@@ -6,29 +6,26 @@
   <title>Digital Twin</title>
   <meta
     name="description"
-    content="Digital Twin: water it with diaries and photos, then walk the months ahead."
+    content="Digital Twin: add diaries and photos, then see possible months ahead."
   />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;700&family=Outfit:wght@400;500&display=swap"
     rel="stylesheet"
   />
   <meta http-equiv="Cache-Control" content="no-store" />
-  <link rel="stylesheet" href="/assets/app.css?v=4" />
+  <link rel="stylesheet" href="/assets/app.css?v=11" />
 </head>
 <body>
+  <div class="pixel-field" aria-hidden="true"></div>
   <div class="shell">
-    <aside class="rail">
+    <aside class="rail wood">
       <div class="brand-block">
-        <p class="brand-kicker" data-i18n="kicker">Digital avatar</p>
+        <img class="plot-sprite" src="/assets/plot.svg" alt="" width="64" height="64" />
+        <p class="brand-kicker" data-i18n="kicker">Local</p>
         <h1 class="brand">Digital Twin</h1>
-        <p class="brand-sub" data-i18n="brandSub">Feed it slowly. The path grows on its own.</p>
-      </div>
-
-      <div class="lang-switch" role="group" aria-label="Language">
-        <button type="button" class="lang-btn active" data-lang="en">EN</button>
-        <button type="button" class="lang-btn" data-lang="zh">中文</button>
+        <p class="brand-sub" data-i18n="brandSub">Add files and notes. Then see possible paths.</p>
       </div>
 
       <nav class="tabs" role="tablist">
@@ -37,9 +34,9 @@
       </nav>
 
       <div class="meters" id="meters">
-        <div class="meter"><span data-i18n="meterCapital">Reserve</span><strong id="m-capital">—</strong></div>
+        <div class="meter"><span data-i18n="meterCapital">Capital</span><strong id="m-capital">—</strong></div>
         <div class="meter"><span data-i18n="meterEnergy">Energy</span><strong id="m-energy">—</strong></div>
-        <div class="meter"><span data-i18n="meterEntropy">Chaos</span><strong id="m-entropy">—</strong></div>
+        <div class="meter"><span data-i18n="meterEntropy">Entropy</span><strong id="m-entropy">—</strong></div>
         <div class="meter"><span data-i18n="meterMemory">Memory</span><strong id="m-memory">—</strong></div>
       </div>
 
@@ -49,38 +46,38 @@
         tabindex="0"
         role="button"
         data-i18n-aria="dropAria"
-        aria-label="Drop files to water memory"
+        aria-label="Drop files to add to memory"
       >
-        <div class="drop-ripple" aria-hidden="true"></div>
-        <h2 data-i18n="dropTitle">Water a memory</h2>
+        <div class="soil" aria-hidden="true"></div>
+        <h2 data-i18n="dropTitle">Add files</h2>
         <p data-i18n="dropBody" data-i18n-mode="html">
-          Drop in a diary, photo, or document.<br />The twin will grow a new path; the old map goes in the drawer.
+          Drop a diary, photo, or document.<br />A new path is generated. The previous path is saved in History.
         </p>
         <input id="fileInput" type="file" multiple hidden />
-        <div class="drop-status" id="dropStatus" data-i18n="dropWaiting">Waiting for a piece of your life</div>
+        <div class="drop-status" id="dropStatus" data-i18n="dropWaiting">Drop files here</div>
       </div>
 
-      <label class="note-label" for="noteInput" data-i18n="noteLabel">A quick line</label>
+      <label class="note-label" for="noteInput" data-i18n="noteLabel">Note</label>
       <textarea
         id="noteInput"
         rows="3"
         data-i18n-placeholder="notePlaceholder"
         placeholder="What happened today… ⌘/Ctrl + Enter to save"
       ></textarea>
-      <button type="button" class="btn btn-ghost" id="noteBtn" data-i18n="noteBtn">Write to memory</button>
+      <button type="button" class="btn btn-ghost" id="noteBtn" data-i18n="noteBtn">Save note</button>
 
       <div class="tool-row">
-        <button type="button" class="btn btn-ghost" id="boardBtn" data-i18n="boardBtn">Ask around</button>
-        <button type="button" class="btn btn-ghost" id="simBtn" data-i18n="simBtn">Walk a path</button>
+        <button type="button" class="btn btn-ghost" id="boardBtn" data-i18n="boardBtn">Compare options</button>
+        <button type="button" class="btn btn-ghost" id="simBtn" data-i18n="simBtn">Simulate</button>
       </div>
 
-      <p class="rail-foot" id="healthLine" data-i18n="healthConnecting">Lighting the lamp…</p>
+      <p class="rail-foot" id="healthLine" data-i18n="healthConnecting">Connecting…</p>
     </aside>
 
-    <main class="stage">
+    <main class="stage wood">
       <section class="view view-chat" id="view-chat">
         <header class="stage-head">
-          <span class="sys" data-i18n="chatTitle">Sit with the twin</span>
+          <span class="sys" data-i18n="chatTitle">Chat</span>
           <span class="sys dim" id="modelLine"></span>
         </header>
         <div class="log" id="log" aria-live="polite"></div>
@@ -89,7 +86,7 @@
             id="prompt"
             rows="1"
             data-i18n-placeholder="chatPlaceholder"
-            placeholder="Say whatever’s on your mind… Enter to send, Shift+Enter for a new line."
+            placeholder="Type a message… Enter to send, Shift+Enter for a new line."
             required
           ></textarea>
           <button class="btn" type="submit" id="sendBtn" data-i18n="send">Send</button>
@@ -99,9 +96,9 @@
       <section class="view view-paths hidden" id="view-paths">
         <header class="stage-head paths-head">
           <div>
-            <span class="sys" id="pathsTitle" data-i18n="pathsTitle">The months ahead</span>
-            <p class="path-summary" id="pathSummary" data-i18n="pathsLoading">Laying out the path…</p>
-            <p class="path-hint" data-i18n="pathsHint">Three forks, then three from each · drag stones · pan · scroll to zoom</p>
+            <span class="sys" id="pathsTitle" data-i18n="pathsTitle">The next 3 months</span>
+            <p class="path-summary" id="pathSummary" data-i18n="pathsLoading">Loading…</p>
+            <p class="path-hint" data-i18n="pathsHint">3 branches, then 3 from each · drag · pan · scroll to zoom</p>
           </div>
           <div class="path-actions">
             <div class="horizon-ctl" role="group" data-i18n-aria="horizonAria" aria-label="How many months ahead">
@@ -110,7 +107,7 @@
               <button type="button" class="horizon-btn" id="horizonPlus" aria-label="More months">+</button>
             </div>
             <button type="button" class="btn btn-ghost" id="resetCamBtn" data-i18n="resetCam">Center</button>
-            <button type="button" class="btn btn-ghost" id="regenPathBtn" data-i18n="regen">Think again</button>
+            <button type="button" class="btn btn-ghost" id="regenPathBtn" data-i18n="regen">Regenerate</button>
           </div>
         </header>
 
@@ -122,17 +119,17 @@
             <label><span data-i18n="inspName">Name</span>
               <input id="inspLabel" maxlength="40" />
             </label>
-            <label><span data-i18n="inspNote">This line</span>
+            <label><span data-i18n="inspNote">Note</span>
               <textarea id="inspDetail" rows="4" maxlength="800"></textarea>
             </label>
             <p class="insp-deltas" id="inspDeltas"></p>
-            <p class="insp-hint" id="inspHint" data-i18n="inspHintEdit">Edits save on their own. You can also drag the node.</p>
+            <p class="insp-hint" id="inspHint" data-i18n="inspHintEdit">Edits save automatically. You can also drag the node.</p>
           </aside>
         </div>
 
         <details class="history-drawer" id="historyDrawer">
           <summary>
-            <span data-i18n="historyTitle">Earlier maps</span>
+            <span data-i18n="historyTitle">History</span>
             <span class="sys dim" id="historyCount">0</span>
           </summary>
           <div class="history-list" id="historyList"></div>
@@ -146,14 +143,14 @@
       <h3 id="modalTitle">Think</h3>
       <textarea id="modalInput" rows="4"></textarea>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="modalCancel" data-i18n="modalCancel">Not now</button>
-        <button type="button" class="btn" id="modalOk" data-i18n="modalOk">Begin</button>
+        <button type="button" class="btn btn-ghost" id="modalCancel" data-i18n="modalCancel">Cancel</button>
+        <button type="button" class="btn" id="modalOk" data-i18n="modalOk">Run</button>
       </div>
     </div>
   </div>
 
-  <script src="/assets/i18n.js?v=4"></script>
-  <script src="/assets/life-path.js?v=4"></script>
-  <script src="/assets/app.js?v=4"></script>
+  <script src="/assets/i18n.js?v=11"></script>
+  <script src="/assets/life-path.js?v=11"></script>
+  <script src="/assets/app.js?v=11"></script>
 </body>
 </html>

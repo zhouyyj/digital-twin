@@ -13,7 +13,7 @@ from openai import OpenAI
 
 from core.memory_manager import MemoryManager
 from core.state_machine import (
-    PHYSICAL_ALERT_CN,
+    PHYSICAL_ALERT,
     UserState,
     deduction_instruction_block,
     evaluate_deduction_reply,
@@ -37,61 +37,61 @@ class _Persona:
 
 _PERSONAS: tuple[_Persona, ...] = (
     _Persona(
-        label="激进破局者",
-        memory_bias="冒险 破局 杠杆 非对称 进攻",
+        label="Radical breaker",
+        memory_bias="risk leverage asymmetric offense delay",
         temperature=0.92,
         system=(
-            "你是「激进破局者」董事：押注非对称收益，厌恶拖延；"
-            "语言锋利、短句为主，敢于推翻默认假设。"
+            "You are the Radical breaker on the board: bet on asymmetric upside, hate stalling. "
+            "Speak in sharp short sentences. Overturn default assumptions. Reply in English."
         ),
     ),
     _Persona(
-        label="理性分析师",
-        memory_bias="风险 收益 概率 现金流 稳定 数据",
+        label="Rational analyst",
+        memory_bias="risk return probability cashflow stability data",
         temperature=0.35,
         system=(
-            "你是「理性分析师」董事：用期望值与可验证前提拆解选项；"
-            "标出关键不确定性与最坏情形，拒绝空泛励志。"
+            "You are the Rational analyst: take options apart with expected value and testable premises. "
+            "Name key uncertainties and the worst case. No empty pep talk. Reply in English."
         ),
     ),
     _Persona(
-        label="深度反思者",
-        memory_bias="意义 恐惧 身份 后悔 长期 内在动机",
+        label="Deep reflector",
+        memory_bias="meaning fear identity regret long-term motive",
         temperature=0.62,
         system=(
-            "你是「深度反思者」董事：追问「谁在害怕什么」与二阶后果；"
-            "把困境映射到自我叙事与伦理张力，语气克制但刺骨。"
+            "You are the Deep reflector: ask who is afraid of what, and the second-order cost. "
+            "Map the bind onto self-story and ethics. Restrained, a little cutting. Reply in English."
         ),
     ),
 )
 
 _FRICTION_EVENTS: tuple[dict[str, str | float], ...] = (
     {
-        "label": "关键设备突发损坏，维修与停工挤占现金",
+        "label": "A key machine breaks; repair and downtime eat cash",
         "capital_delta": -10.0,
         "energy_delta": -7.0,
         "entropy_rate_delta": 0.02,
     },
     {
-        "label": "合作方跳票 / 回款延迟，现金流承压",
+        "label": "A partner misses a payment; cashflow tightens",
         "capital_delta": -14.0,
         "energy_delta": -6.0,
         "entropy_rate_delta": 0.04,
     },
     {
-        "label": "舆论黑天鹅，声誉维护消耗带宽",
+        "label": "A reputation shock; defending it costs bandwidth",
         "capital_delta": -4.0,
         "energy_delta": -11.0,
         "entropy_rate_delta": 0.05,
     },
     {
-        "label": "核心成员临时离职，组织磨合成本上升",
+        "label": "A core person leaves; the team has to relearn itself",
         "capital_delta": -6.0,
         "energy_delta": -12.0,
         "entropy_rate_delta": 0.03,
     },
     {
-        "label": "监管或合规抽查，合规支出意外增加",
+        "label": "A compliance check; unexpected spend",
         "capital_delta": -9.0,
         "energy_delta": -5.0,
         "entropy_rate_delta": 0.02,
@@ -101,14 +101,14 @@ _FRICTION_EVENTS: tuple[dict[str, str | float], ...] = (
 
 def _format_memory_hits(hits: list[dict]) -> str:
     if not hits:
-        return "（记忆库中暂无相近条目。）"
+        return "(No nearby memory yet.)"
     lines: list[str] = []
     for i, h in enumerate(hits, start=1):
         ts = h.get("timestamp", "")
         et = h.get("event_type", "")
         body = h.get("text", "")
         lines.append(f"[{i}] {ts} | {et}\n{body}")
-    return "与本轮立场相关的记忆片段：\n\n" + "\n\n".join(lines)
+    return "Memory that bears on this seat:\n\n" + "\n\n".join(lines)
 
 
 def _chat_once(
@@ -131,7 +131,7 @@ def _chat_once(
 
 
 def _apply_friction_scaled(state: UserState, ev: dict[str, str | float]) -> tuple[bool, str]:
-    """在精力不为负的前提下尽量应用摩擦；必要时缩放增量。"""
+    """Apply friction without driving energy negative; scale down if needed."""
     label = str(ev["label"])
     for scale in (1.0, 0.55, 0.3):
         cd = float(ev["capital_delta"]) * scale
@@ -140,15 +140,15 @@ def _apply_friction_scaled(state: UserState, ev: dict[str, str | float]) -> tupl
         if state.preview_energy_after(ed) < 0:
             continue
         if state.apply_deltas(cd, ed, er):
-            suffix = f"（摩擦强度 ×{scale:g}）" if scale < 1.0 else ""
+            suffix = f" (friction ×{scale:g})" if scale < 1.0 else ""
             return True, f"{label}{suffix}"
     return False, label
 
 
 def _roll_friction(state: UserState) -> tuple[str | None, str]:
     """
-    结合 entropy_rate 随机触发外部摩擦。
-    返回 (若触发则摩擦说明文案, 人类可读掷骰摘要)。
+    Maybe fire an outside shock, using entropy_rate.
+    Returns (friction line if it landed, human-readable roll note).
     """
     p = min(0.9, 0.08 + float(state.entropy_rate) * 1.15)
     roll = random.random()
@@ -158,12 +158,12 @@ def _roll_friction(state: UserState) -> tuple[str | None, str]:
     ev = random.choice(_FRICTION_EVENTS)
     ok, desc = _apply_friction_scaled(state, ev)
     if not ok:
-        return None, summary + " → 摩擦被物理上限压制，未生效"
+        return None, summary + " → friction blocked by the physical ceiling"
     return desc, summary
 
 
 class CognitiveSandbox:
-    """认知董事会（并行观点 + 互驳）与步进式月度物理推演。"""
+    """Board of minds (parallel views + rebuttal) and stepped monthly simulation."""
 
     def __init__(
         self,
@@ -183,13 +183,13 @@ class CognitiveSandbox:
     def run_board(self, dilemma: str) -> None:
         d = dilemma.strip()
         if not d:
-            self._print(f"{Fore.RED}用法：/board [困境描述]{_RST}", file=sys.stderr)
+            self._print(f"{Fore.RED}Usage: /board [dilemma]{_RST}", file=sys.stderr)
             return
 
-        self._print(f"\n{_HDR}══ 认知董事会 · 沙盒 ══{_RST}")
-        self._print(f"{_HDR}核心困境：{_RST}{d}\n")
+        self._print(f"\n{_HDR}══ Cognitive board · sandbox ══{_RST}")
+        self._print(f"{_HDR}The bind:{_RST} {d}\n")
 
-        # 顺序检索，避免向量库并发读问题；补全并行。
+        # Sequential retrieval so the vector store is not read concurrently.
         contexts: list[tuple[_Persona, str]] = []
         for persona in _PERSONAS:
             hits = self._memory.search_relevant_events(
@@ -200,10 +200,10 @@ class CognitiveSandbox:
 
         def _one_completion(idx: int, persona: _Persona, mem_block: str) -> tuple[int, str, str]:
             user = (
-                f"核心困境：\n{d}\n\n{mem_block}\n\n"
-                "请站在你的董事席位上给出：立场 → 关键论据（可引用记忆片段编号）→ "
-                "对其他两类董事（激进破局者 / 理性分析师 / 深度反思者）常见论点的针对性驳斥。"
-                "总字数控制在 900 字以内，不要输出 JSON。"
+                f"The bind:\n{d}\n\n{mem_block}\n\n"
+                "From your seat, give: stance → key arguments (cite memory numbers if useful) → "
+                "a pointed rebuttal of the other two seats (Radical breaker / Rational analyst / Deep reflector). "
+                "Stay under 900 words. No JSON. English only."
             )
             messages = [
                 {"role": "system", "content": persona.system},
@@ -231,12 +231,12 @@ class CognitiveSandbox:
             if item is None:
                 continue
             label, text = item
-            self._print(f"{_HDR}── 节点 {i} · {label} ──{_RST}")
+            self._print(f"{_HDR}── Node {i} · {label} ──{_RST}")
             self._print(f"{_BODY}{text}{_RST}\n")
 
-        # 合议互驳（基于已得文本，单轮合成）
+        # One-pass synthesis of the clash
         bundle = "\n\n".join(
-            f"【{label}】\n{text}"
+            f"[{label}]\n{text}"
             for slot in ordered
             if slot is not None
             for label, text in [slot]
@@ -248,8 +248,9 @@ class CognitiveSandbox:
                 {
                     "role": "system",
                     "content": (
-                        "你是镜子合议庭书记：只做观点对照与互驳映射，禁止引入新事实或数据。"
-                        "用两段中文：① 三方分歧轴；② 各方最有效的相互打击点。总字数 ≤ 500。"
+                        "You are the board clerk: map disagreement only. Do not invent facts. "
+                        "Two English paragraphs: (1) the three axes of conflict; "
+                        "(2) each seat's strongest strike on the others. ≤ 500 words."
                     ),
                 },
                 {"role": "user", "content": bundle},
@@ -257,49 +258,49 @@ class CognitiveSandbox:
             temperature=0.42,
             max_tokens=700,
         )
-        self._print(f"{_HDR}── 节点 IV · 互驳合取 ──{_RST}")
+        self._print(f"{_HDR}── Node IV · clash ──{_RST}")
         self._print(f"{_BODY}{syn}{_RST}\n")
 
     def run_simulate(self, choice: str) -> None:
         c = choice.strip()
         if not c:
             self._print(
-                f"{Fore.RED}用法：/simulate [你的选择或路径描述]{_RST}",
+                f"{Fore.RED}Usage: /simulate [choice or path]{_RST}",
                 file=sys.stderr,
             )
             return
 
-        self._print(f"\n{_HDR}══ 步进式推演 · 3 个月 ══{_RST}")
-        self._print(f"{_HDR}路径锚定：{_RST}{c}\n")
+        self._print(f"\n{_HDR}══ Stepped simulation · 3 months ══{_RST}")
+        self._print(f"{_HDR}Path:{_RST} {c}\n")
 
         for month in range(1, 4):
-            self._print(f"{_HDR}── 第 {month}/3 月 ──{_RST}")
+            self._print(f"{_HDR}── Month {month}/3 ──{_RST}")
             friction_line, roll_note = _roll_friction(self._state)
             if friction_line:
-                self._print(f"{_WARN}[外部摩擦] {friction_line}{_RST}")
+                self._print(f"{_WARN}[Outside friction] {friction_line}{_RST}")
             else:
-                self._print(f"{_HDR}[外部摩擦] 未触发（{roll_note}）{_RST}")
+                self._print(f"{_HDR}[Outside friction] none ({roll_note}){_RST}")
 
             st = self._state
             user = (
-                f"【步进式推演 · 第 {month}/3 月】时间粒度：月。\n"
-                f"用户选择路径：{c}\n"
-                f"当前物理状态：capital={st.capital:.2f}, energy={st.energy:.2f}, "
+                f"[Stepped simulation · month {month}/3] Grain: one month.\n"
+                f"Chosen path: {c}\n"
+                f"Physical now: capital={st.capital:.2f}, energy={st.energy:.2f}, "
                 f"entropy_rate={st.entropy_rate:.2f}\n"
-                f"本月外部摩擦：{friction_line or '无（或未成功入账）'}\n\n"
-                "请用简练中文推演本月在该路径下的关键因果链（含情绪与资源约束），"
-                "不要复述系统 JSON 要求的长说明。\n"
-                "在全文最后附上与主程序一致的 Markdown JSON 代码块，仅含三字段："
-                "capital_delta, energy_delta, entropy_rate_delta；"
-                "表示**本月叙事中该路径带来的边际后果**（摩擦若已入账，JSON 只写路径本身的额外冲击，避免与摩擦重复夸大）。"
+                f"This month's outside friction: {friction_line or 'none (or did not land)'}\n\n"
+                "In concise English, walk the causal chain for this month on this path "
+                "(mood and resource constraints included). Do not restate the JSON protocol.\n"
+                "End with the same Markdown JSON block the app expects, three fields only: "
+                "capital_delta, energy_delta, entropy_rate_delta — the **marginal** effect of "
+                "this path this month (if friction already landed, do not double-count it)."
                 f"\n\n{deduction_instruction_block(st)}"
             )
             messages = [
                 {
                     "role": "system",
                     "content": (
-                        "你是 Digital Twin 的月度沙盘引擎：冷峻、因果清晰，拒绝鸡汤。"
-                        "严格遵守用户在文末追加的物理 JSON 协议。"
+                        "You are Digital Twin's monthly sandbox: cold, causal, no pep talk. "
+                        "Honor the physical JSON protocol at the end of the user message. English only."
                     ),
                 },
                 {"role": "user", "content": user},
@@ -308,17 +309,17 @@ class CognitiveSandbox:
             display, outcome = evaluate_deduction_reply(self._state, raw)
 
             if outcome == "intercepted":
-                self._print(f"{Fore.RED}{PHYSICAL_ALERT_CN}{_RST}\n")
+                self._print(f"{Fore.RED}{PHYSICAL_ALERT}{_RST}\n")
                 break
 
             self._print(f"{_BODY}{display}{_RST}\n")
             if outcome == "no_json":
                 self._print(
-                    f"{_WARN}[系统] 第 {month} 月未解析到有效 JSON，状态仅含摩擦变更（若有）。{_RST}",
+                    f"{_WARN}[System] Month {month}: no valid JSON; state only includes friction if any.{_RST}",
                     file=sys.stderr,
                 )
 
-        self._print(f"{_HDR}── 推演后物理残余 ──{_RST}")
+        self._print(f"{_HDR}── Physical remainder ──{_RST}")
         s = self._state
         self._print(
             f"{_HDR}capital={s.capital:.2f}  energy={s.energy:.2f}  "

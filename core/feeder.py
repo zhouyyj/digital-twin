@@ -41,9 +41,9 @@ _CHUNK_CHARS = 1200
 _CHUNK_OVERLAP = 150
 
 _IMAGE_PROMPT = (
-    "你在为「数字孪生」浇灌记忆。请用中文简洁描述这张个人图片里与主人身份、"
-    "生活场景、情绪、关系或价值观相关的信息。不要空泛审美评价；标出可见文字"
-    "（若有）。输出 120–280 字的记忆条目正文即可。"
+    "You are watering memory for Digital Twin. In concise English, describe this personal "
+    "photo: identity, setting, mood, relationships, or values. No empty aesthetic praise. "
+    "Note any visible text. Write 80–180 words as a memory entry."
 )
 
 
@@ -77,18 +77,18 @@ class PersonalFeeder:
 
         - `/water ~/diary/2024.md`
         - `/water ./photos`
-        - `/water note: 今天把工作室清了一遍，终于敢开窗。`
+        - `/water note: I finally opened the windows after clearing the studio.`
         """
         raw = target.strip()
         if not raw:
             raise ValueError(
-                "用法：/water <文件或目录>  或  /water note: <日记正文>"
+                "Usage: /water <file or directory>  or  /water note: <diary line>"
             )
 
         if raw.lower().startswith("note:"):
             body = raw.split(":", 1)[1].strip()
             if not body:
-                raise ValueError("note: 后面需要日记正文。")
+                raise ValueError("note: needs a diary line after it.")
             eid = self._memory.add_event(
                 body,
                 "Diary_Entry",
@@ -106,11 +106,11 @@ class PersonalFeeder:
 
         path = Path(raw).expanduser()
         if not path.exists():
-            raise FileNotFoundError(f"找不到路径：{path}")
+            raise FileNotFoundError(f"Path not found: {path}")
 
         files = sorted(self._iter_files(path))
         if not files:
-            raise ValueError(f"没有可浇灌的文件：{path}")
+            raise ValueError(f"Nothing to water at: {path}")
 
         results: list[WaterResult] = []
         for f in files:
@@ -151,12 +151,12 @@ class PersonalFeeder:
             texts = list(self._chunk_text(raw))
             event_type = "Diary_Entry" if kind == "diary" else "Document_Artifact"
         else:
-            raise ValueError(f"暂不支持的类型：{path.suffix or path.name}")
+            raise ValueError(f"Unsupported type: {path.suffix or path.name}")
 
         ids: list[str] = []
         total = len(texts)
         for i, chunk in enumerate(texts, start=1):
-            header = f"[浇灌 {kind} · {path.name} · {i}/{total}]\n"
+            header = f"[watered {kind} · {path.name} · {i}/{total}]\n"
             eid = self._memory.add_event(
                 header + chunk,
                 event_type,
@@ -165,7 +165,7 @@ class PersonalFeeder:
             )
             ids.append(eid)
 
-        self._print(f"已浇灌 {path} → {len(ids)} 条记忆（{kind}）")
+        self._print(f"Watered {path} → {len(ids)} memories ({kind})")
         return WaterResult(
             path=str(path),
             kind=kind,
@@ -208,7 +208,7 @@ class PersonalFeeder:
         try:
             from pypdf import PdfReader
         except ImportError as exc:
-            raise RuntimeError("需要 pypdf 才能浇灌 PDF：pip install pypdf") from exc
+            raise RuntimeError("pypdf is required for PDFs: pip install pypdf") from exc
         reader = PdfReader(str(path))
         pages: list[str] = []
         for i, page in enumerate(reader.pages, start=1):
@@ -219,7 +219,7 @@ class PersonalFeeder:
             if t.strip():
                 pages.append(f"--- page {i} ---\n{t.strip()}")
         if not pages:
-            raise ValueError(f"PDF 未能提取到文本：{path}")
+            raise ValueError(f"No text extracted from PDF: {path}")
         return "\n\n".join(pages)
 
     def _read_docx(self, path: Path) -> str:
@@ -227,12 +227,12 @@ class PersonalFeeder:
             import docx  # type: ignore
         except ImportError as exc:
             raise RuntimeError(
-                "需要 python-docx 才能浇灌 Word：pip install python-docx"
+                "python-docx is required for Word: pip install python-docx"
             ) from exc
         document = docx.Document(str(path))
         paras = [p.text.strip() for p in document.paragraphs if p.text.strip()]
         if not paras:
-            raise ValueError(f"Word 文档为空：{path}")
+            raise ValueError(f"Word document is empty: {path}")
         return "\n\n".join(paras)
 
     def _describe_image(self, path: Path) -> str:
@@ -259,5 +259,5 @@ class PersonalFeeder:
         )
         text = (resp.choices[0].message.content or "").strip()
         if not text:
-            raise ValueError(f"图像描述为空：{path}")
+            raise ValueError(f"Image description was empty: {path}")
         return text

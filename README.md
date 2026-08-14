@@ -28,7 +28,7 @@ Use it from the **terminal** or the **local website** (drag-and-drop watering + 
 | **History** | After watering, the old map archives into a drawer |
 | **Sandbox** | Board debate and month-by-month simulation |
 
-UI defaults to **English** with a **中文** toggle.
+The UI is English-only.
 
 ## Setup
 

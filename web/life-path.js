@@ -1,14 +1,14 @@
 window.MirrorLifePath = (() => {
-  const OPEN = "#6f8f6d";
-  const CLOSED = "#d5c6b6";
-  const CLOSED_STROKE = "#c4b3a2";
-  const TODAY = "#c4785a";
-  const TRUNK = "#b08968";
-  const LABEL = "#8a7668";
-  const INK = "#3d3229";
-  const INK_SOFT = "#6b5b4e";
-  const SERIF = "Fraunces, Noto Serif SC, serif";
-  const SANS = "Noto Sans SC, Songti SC, sans-serif";
+  const OPEN = "#4a9c4a";
+  const CLOSED = "#6e452c";
+  const CLOSED_STROKE = "#4a2e1c";
+  const TODAY = "#f4d35e";
+  const TRUNK = "#c4895a";
+  const LABEL = "#8d8478";
+  const INK = "#f4efe6";
+  const INK_SOFT = "#c9c0b4";
+  const SERIF = "Pixelify Sans, Outfit, sans-serif";
+  const SANS = "Outfit, Noto Sans SC, sans-serif";
 
   function el(name, attrs = {}, text) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -65,27 +65,17 @@ window.MirrorLifePath = (() => {
   function pebblePath(id, kind) {
     const { rx, ry } = pebbleSize(kind);
     const h = hashStr(id || "stone");
-    const n = 8;
+    const n = 6;
     const pts = [];
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 - 0.35;
-      const jx = 0.74 + ((h >> (i * 2)) % 11) / 28;
-      const jy = 0.78 + ((h >> (i * 3 + 1)) % 9) / 32;
+      const a = (i / n) * Math.PI * 2 - 0.28 + ((h % 7) - 3) * 0.02;
+      const jx = 0.78 + ((h >> (i * 2)) % 9) / 24;
+      const jy = 0.8 + ((h >> (i * 3 + 1)) % 8) / 28;
       pts.push([Math.cos(a) * rx * jx, Math.sin(a) * ry * jy]);
     }
-    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    let d = "";
-    for (let i = 0; i < n; i++) {
-      const p = pts[i];
-      const q = pts[(i + 1) % n];
-      const m = mid(p, q);
-      if (i === 0) {
-        const start = mid(pts[n - 1], p);
-        d += `M ${start[0].toFixed(1)} ${start[1].toFixed(1)}`;
-      }
-      d += ` Q ${p[0].toFixed(1)} ${p[1].toFixed(1)} ${m[0].toFixed(1)} ${m[1].toFixed(1)}`;
-    }
-    return `${d} Z`;
+    return pts
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
+      .join(" ") + " Z";
   }
 
   function layout(data, labels = {}) {
@@ -255,10 +245,10 @@ window.MirrorLifePath = (() => {
       g.appendChild(el("stop", { offset: "100%", "stop-color": c1 }));
       defs.appendChild(g);
     }
-    radial("pebbleToday", "#e8a888", "#a85f44");
-    radial("pebbleOpen", "#b7c4a4", "#5d7a5c");
-    radial("pebbleTrunk", "#d4b08a", "#8d6a4a");
-    radial("pebbleClosed", "#efe4d6", "#c4b3a2");
+    radial("pebbleToday", "#f4d35e", "#c4895a");
+    radial("pebbleOpen", "#6bb04a", "#2f6b32");
+    radial("pebbleTrunk", "#c4895a", "#6e452c");
+    radial("pebbleClosed", "#8b5a3c", "#4a2e1c");
     const drop = el("filter", { id: "pebbleShadow", x: "-40%", y: "-20%", width: "180%", height: "180%" });
     drop.appendChild(el("feDropShadow", {
       dx: "0.6",
@@ -375,8 +365,7 @@ window.MirrorLifePath = (() => {
             : n.kind === "trunk"
               ? "url(#pebbleTrunk)"
               : "url(#pebbleOpen)";
-      const stroke =
-        n.kind === "today" ? "#8d4e36" : n.kind === "closed" ? CLOSED_STROKE : n.kind === "trunk" ? "#7a5638" : "#4e664c";
+      const stroke = "#121214";
 
       const g = el("g", {
         class: "path-node",
@@ -391,7 +380,7 @@ window.MirrorLifePath = (() => {
         fill: "none",
         stroke: n.kind === "today" ? TODAY : OPEN,
         "stroke-width": 7,
-        "stroke-linejoin": "round",
+        "stroke-linejoin": "miter",
         opacity: n.kind === "today" ? 0.35 : 0,
         transform: "scale(1.18)",
       });
@@ -421,8 +410,8 @@ window.MirrorLifePath = (() => {
           d,
           fill,
           stroke,
-          "stroke-width": n.kind === "today" ? 1.4 : 1,
-          "stroke-linejoin": "round",
+          "stroke-width": n.kind === "today" ? 2.4 : 2,
+          "stroke-linejoin": "miter",
           filter: "url(#pebbleShadow)",
         })
       );
@@ -658,7 +647,7 @@ window.MirrorLifePath = (() => {
     listEl.innerHTML = "";
     if (!history?.length) {
       listEl.innerHTML = `<p class="history-empty">${
-        labels.historyEmpty || "The drawer is empty."
+        labels.historyEmpty || "No previous paths."
       }</p>`;
       return;
     }

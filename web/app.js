@@ -4,7 +4,7 @@
   const t = (...args) => i18n.t(...args);
 
   function apiHeaders(extra = {}) {
-    return { "X-UI-Lang": i18n.current(), ...extra };
+    return extra;
   }
 
   const logEl = document.getElementById("log");
@@ -607,18 +607,6 @@
     } finally {
       setBusy(false);
     }
-  });
-
-  document.querySelectorAll(".lang-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (btn.dataset.lang === i18n.current()) return;
-      i18n.setLang(btn.dataset.lang);
-      healthLine.textContent = t(healthKey);
-      if (!busy) dropStatus.textContent = t("dropWaiting");
-      regenPathBtn.textContent = t("regen");
-      syncHorizonChrome();
-      if (lifePathData) paintLifePath(lifePathData, { archive: viewingArchive || undefined });
-    });
   });
 
   syncHorizonChrome();
