@@ -22,9 +22,9 @@ uvicorn server:app --reload --port 8787
 
 Open [http://127.0.0.1:8787](http://127.0.0.1:8787)
 
-- Drag diaries / PDFs / images onto **浇灌**
-- Chat in **聊聊**
-- Open **人生小路** for a past / today / 3-month future tree (regenerates after watering; old trees stay in history)
+- Drag diaries / PDFs / images onto **watering**
+- Chat in **small talk**
+- Open **roadmap** for a past / today / 3-month future tree (regenerates after watering; old trees stay in history)
 - Drag nodes to rearrange; click a node to edit it
 
 ### Terminal CLI
