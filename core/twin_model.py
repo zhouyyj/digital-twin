@@ -11,6 +11,7 @@ from typing import Any
 from openai import OpenAI
 
 from core.config import get_openai_model, get_project_root
+from core.language import contains_cjk
 from core.memory_manager import MemoryManager
 
 PROFILE_FILENAME = "twin_profile.json"
@@ -97,7 +98,7 @@ class TwinModel:
         )
 
     def compact_context(self) -> str:
-        profile = self.load()
+        profile = self.migrate_to_english()
         return json.dumps(
             {
                 "summary": profile.get("summary", ""),
@@ -114,7 +115,7 @@ class TwinModel:
             for event in self._memory.recent_events(limit=64)
             if event.get("event_type") != "AI_Intervention"
         ][:48]
-        if not events:
+        if not events and reason != "language-migration":
             return current
 
         evidence = []
@@ -124,7 +125,7 @@ class TwinModel:
                 f"[{evidence_id}] {event.get('timestamp','')} | {event.get('event_type','')} | "
                 f"{event.get('source','')}\n{str(event.get('text',''))[:900]}"
             )
-        evidence_block = "\n\n".join(evidence)
+        evidence_block = "\n\n".join(evidence) or "(no recent evidence; translate the prior model only)"
 
         prompt = (
             "Update a digital-twin model from the evidence below. This model will constrain "
@@ -134,6 +135,7 @@ class TwinModel:
             "Each list item is an object with keys: claim, evidence (array of persistent evidence ids), confidence. "
             "unknowns may instead be short strings. revisions are short descriptions of what changed.\n"
             "Rules:\n"
+            "- Write every user-visible string in English, even when the evidence or previous model is not English.\n"
             "- Preserve a prior claim only while evidence still supports it.\n"
             "- Separate what the person says from what repeated behavior shows.\n"
             "- Prefer concrete constraints and repeated patterns over adjectives.\n"
@@ -149,7 +151,7 @@ class TwinModel:
             messages=[
                 {
                     "role": "system",
-                    "content": "You maintain an evidence-bound human model. Output valid JSON only.",
+                    "content": "You maintain an evidence-bound human model. Output valid JSON only. All strings must be in English.",
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -157,8 +159,10 @@ class TwinModel:
             max_tokens=2600,
         )
         parsed = _extract_json((response.choices[0].message.content or "").strip())
-        if not parsed:
-            current["last_refresh_error"] = "Model returned invalid profile JSON."
+        if not parsed or contains_cjk(parsed):
+            current["last_refresh_error"] = (
+                "Model returned invalid or mixed-language profile JSON."
+            )
             self.save(current)
             return current
 
@@ -169,6 +173,30 @@ class TwinModel:
         result = self._normalize(parsed)
         self.save(result)
         return result
+
+    def needs_english_migration(self, profile: dict[str, Any] | None = None) -> bool:
+        return contains_cjk(profile if profile is not None else self.load())
+
+    def migrate_to_english(self) -> dict[str, Any]:
+        """One-time migration for profiles persisted before English-only output."""
+        current = self.load()
+        if not self.needs_english_migration(current):
+            return current
+        try:
+            migrated = self.refresh(reason="language-migration")
+            if not self.needs_english_migration(migrated):
+                return migrated
+        except Exception:
+            pass
+
+        fallback = _default_profile()
+        fallback["observations"] = int(current.get("observations") or 0)
+        fallback["refresh_reason"] = "language-migration-fallback"
+        fallback["revisions"] = [
+            "The previous non-English profile was reset and can be rebuilt from saved evidence."
+        ]
+        self.save(fallback)
+        return fallback
 
     def _normalize(self, data: dict[str, Any]) -> dict[str, Any]:
         base = _default_profile()

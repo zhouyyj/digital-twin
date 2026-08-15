@@ -12,6 +12,7 @@ from typing import Any
 from openai import OpenAI
 
 from core.config import get_openai_model, get_project_root
+from core.language import contains_cjk
 from core.memory_manager import MemoryManager
 from core.state_machine import UserState
 from core.twin_model import TwinModel
@@ -264,6 +265,75 @@ class LifePathEngine:
                 return data
         return data
 
+    @staticmethod
+    def _current_content(data: dict[str, Any]) -> dict[str, Any]:
+        """Exclude archives: their original wording is intentionally immutable."""
+        return {
+            "summary": data.get("summary"),
+            "today_label": data.get("today_label"),
+            "past": data.get("past"),
+            "future": data.get("future"),
+            "commitment": data.get("commitment"),
+        }
+
+    def needs_english_migration(self, data: dict[str, Any] | None = None) -> bool:
+        current = data if data is not None else self.load_or_seed()
+        return contains_cjk(self._current_content(current))
+
+    @staticmethod
+    def _english_commitment(commitment: Any) -> dict[str, Any] | None:
+        if not isinstance(commitment, dict):
+            return None
+        migrated = dict(commitment)
+        if contains_cjk(migrated.get("label")):
+            migrated["label"] = "Committed path (legacy)"
+        if contains_cjk(migrated.get("detail")):
+            migrated["detail"] = (
+                "This choice predates the English migration; its original wording is in the archived prediction."
+            )
+        return migrated
+
+    def _archive(self, data: dict[str, Any], *, reason: str) -> dict[str, Any]:
+        return {
+            "id": uuid.uuid4().hex[:10],
+            "archived_at": _now_iso(),
+            "reason": reason,
+            "summary": data.get("summary", ""),
+            "today_label": data.get("today_label", "today"),
+            "past": data.get("past", {}),
+            "future": data.get("future", {}),
+            "commitment": data.get("commitment"),
+            "generated_at": data.get("generated_at"),
+            "trigger": data.get("trigger"),
+            "horizon_months": (data.get("meta") or {}).get("horizon_months"),
+        }
+
+    def migrate_to_english(self) -> dict[str, Any]:
+        """Archive an old non-English map and replace the visible map with English."""
+        current = self.load_or_seed()
+        if not self.needs_english_migration(current):
+            return current
+        try:
+            migrated = self.regenerate(reason="language-migration", archive=True)
+            if not self.needs_english_migration(migrated):
+                return migrated
+        except Exception:
+            pass
+
+        horizon = clamp_horizon((current.get("meta") or {}).get("horizon_months"))
+        fallback = _default_seed(self._state, horizon)
+        history = list(current.get("history") or [])
+        history.append(self._archive(current, reason="language-migration"))
+        fallback["history"] = history[-12:]
+        fallback["commitment"] = self._english_commitment(current.get("commitment"))
+        fallback["trigger"] = "language-migration-fallback"
+        fallback["summary"] = (
+            "The previous map is archived; this English sketch remains until fresh evidence redraws it."
+        )
+        self._normalize(fallback, horizon=horizon)
+        self.save(fallback)
+        return fallback
+
     def regenerate(
         self,
         *,
@@ -279,21 +349,8 @@ class LifePathEngine:
             else (current.get("meta") or {}).get("horizon_months")
         )
         history = list(current.get("history") or [])
-        if archive and current.get("trigger") != "seed":
-            history.append(
-                {
-                    "id": uuid.uuid4().hex[:10],
-                    "archived_at": _now_iso(),
-                    "reason": reason,
-                    "summary": current.get("summary", ""),
-                    "today_label": current.get("today_label", "today"),
-                    "past": current.get("past", {}),
-                    "future": current.get("future", {}),
-                    "generated_at": current.get("generated_at"),
-                    "trigger": current.get("trigger"),
-                    "horizon_months": (current.get("meta") or {}).get("horizon_months"),
-                }
-            )
+        if archive and (current.get("trigger") != "seed" or reason == "language-migration"):
+            history.append(self._archive(current, reason=reason))
             history = history[-12:]
 
         memory_hits = self._memory.search_relevant_events(
@@ -309,13 +366,18 @@ class LifePathEngine:
                     f"{h.get('text','')[:500]}"
                 )
             mem_block = "\n\n".join(parts)
-        profile_block = (
-            self._twin_model.compact_context()
-            if self._twin_model is not None
-            else "(no durable twin model)"
-        )
+        profile_block = "(no durable twin model)"
+        if self._twin_model is not None:
+            self._twin_model.migrate_to_english()
+            profile_block = self._twin_model.compact_context()
 
-        past = current.get("past") or {"trunk": [], "closed": []}
+        migrating_language = reason == "language-migration"
+        past = (
+            {"trunk": [], "closed": []}
+            if migrating_language
+            else current.get("past") or {"trunk": [], "closed": []}
+        )
+        commitment_for_prompt = None if migrating_language else current.get("commitment")
         later_rule = ""
         if horizon >= 3:
             later_rule = (
@@ -371,7 +433,7 @@ class LifePathEngine:
             "but never declare impossibility from weak evidence.\n"
             f"Why this map: {reason}\n"
             f"Active commitment (a choice, not proof it happened):\n"
-            f"{json.dumps(current.get('commitment'), ensure_ascii=False)[:1200]}\n"
+            f"{json.dumps(commitment_for_prompt, ensure_ascii=False)[:1200]}\n"
             f"Durable twin model (claims remain uncertain):\n{profile_block}\n"
             f"Memory:\n{mem_block}\n"
             f"Existing past (keep continuity):\n{json.dumps(past, ensure_ascii=False)[:2500]}"
@@ -388,9 +450,9 @@ class LifePathEngine:
         )
         raw = (resp.choices[0].message.content or "").strip()
         parsed = _extract_json(raw)
-        if not parsed:
+        if not parsed or contains_cjk(parsed):
             parsed = _default_seed(self._state, horizon)
-            parsed["summary"] = "The model didn't return valid JSON; keeping the sketched path."
+            parsed["summary"] = "The model returned unusable or mixed-language content; keeping the English sketch."
             parsed["trigger"] = reason
 
         data = {
@@ -402,7 +464,11 @@ class LifePathEngine:
             "past": parsed.get("past") or past,
             "future": parsed.get("future") or current.get("future"),
             "history": history,
-            "commitment": current.get("commitment"),
+            "commitment": (
+                self._english_commitment(current.get("commitment"))
+                if migrating_language
+                else current.get("commitment")
+            ),
             "meta": {
                 "today": datetime.now().strftime("%Y-%m-%d"),
                 "horizon_months": horizon,
