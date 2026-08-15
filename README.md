@@ -2,6 +2,10 @@
 
 **A personal world simulator grounded in evidence, uncertainty, and actual choices.**
 
+<p align="center">
+  <img src="docs/preview.png" alt="Mirror — evidence-bound personal world simulator" width="1200" />
+</p>
+
 Mirror is not a generic advice bot and it does not ask you to rate your life with precise
 energy or money scores. You add observations, diaries, documents, and images. Mirror turns
 that evidence into a revisable Twin Model, then uses it to simulate possible worlds that are
