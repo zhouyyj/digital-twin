@@ -222,7 +222,7 @@ def get_state() -> dict[str, Any]:
 
 @app.get("/api/profile")
 def get_profile() -> dict[str, Any]:
-    return _rt().twin_model.load()
+    return _rt().twin_model.migrate_to_english()
 
 
 @app.post("/api/chat")
@@ -354,6 +354,8 @@ def get_life_path(refresh: bool = False) -> dict[str, Any]:
     if refresh:
         return rt.life_path.regenerate(reason="manual", archive=True)
     data = rt.life_path.load_or_seed()
+    if rt.life_path.needs_english_migration(data):
+        return rt.life_path.migrate_to_english()
     if data.get("trigger") == "seed":
         try:
             return rt.life_path.regenerate(reason="boot", archive=False)
