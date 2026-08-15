@@ -18,6 +18,8 @@ EventType = Literal[
     "Diary_Entry",
     "Document_Artifact",
     "Image_Artifact",
+    "Choice_Commitment",
+    "Reality_Check",
 ]
 _EVENT_TYPES: frozenset[str] = frozenset(
     {
@@ -26,6 +28,8 @@ _EVENT_TYPES: frozenset[str] = frozenset(
         "Diary_Entry",
         "Document_Artifact",
         "Image_Artifact",
+        "Choice_Commitment",
+        "Reality_Check",
     }
 )
 
@@ -139,3 +143,26 @@ class MemoryManager:
 
     def count_events(self) -> int:
         return int(self._collection.count())
+
+    def recent_events(self, limit: int = 40) -> list[dict[str, Any]]:
+        """Return the newest events for longitudinal model updates."""
+        if limit < 1 or self._collection.count() == 0:
+            return []
+        raw = self._collection.get(include=["documents", "metadatas"])
+        ids = raw.get("ids") or []
+        docs = raw.get("documents") or []
+        metas = raw.get("metadatas") or []
+        events: list[dict[str, Any]] = []
+        for i, event_id in enumerate(ids):
+            meta = metas[i] if i < len(metas) and metas[i] else {}
+            events.append(
+                {
+                    "id": event_id,
+                    "text": docs[i] if i < len(docs) else "",
+                    "timestamp": meta.get("timestamp", ""),
+                    "event_type": meta.get("event_type", ""),
+                    "source": meta.get("source", ""),
+                }
+            )
+        events.sort(key=lambda event: event.get("timestamp", ""), reverse=True)
+        return events[:limit]

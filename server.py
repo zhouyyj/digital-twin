@@ -7,7 +7,6 @@ import re
 import shutil
 import uuid
 from contextlib import asynccontextmanager
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -29,18 +28,15 @@ from core.life_path import LifePathEngine
 from core.memory_manager import MemoryManager
 from core.sandbox import CognitiveSandbox
 from core.state_machine import (
-    PHYSICAL_ALERT,
     UserState,
-    deduction_instruction_block,
-    evaluate_deduction_reply,
     is_deduction_request,
 )
+from core.twin_model import TwinModel
 
 SYSTEM_PROMPT = (
-    "You are my digital twin. Speak with extreme restraint and precision; "
-    "use questions to cut into my thinking. You may use diaries, documents, "
-    "and image descriptions I have watered into memory; do not pretend to see "
-    "private material that was never given. Reply in English."
+    "You are my evidence-bound digital twin. Speak with restraint and precision. "
+    "Separate what is observed, inferred, and unknown. Use questions to cut into "
+    "my thinking; never replace uncertainty with generic advice. Reply in English."
 )
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._\-\u4e00-\u9fff]+")
@@ -58,14 +54,24 @@ class AppRuntime:
         self.client = OpenAI(api_key=api_key, base_url=get_openai_base_url())
         self.memory = MemoryManager(self.client)
         self.state = UserState.load()
+        self.twin_model = TwinModel(self.client, self.memory, model=self.model)
         self.feeder = PersonalFeeder(
             self.client, self.memory, model=self.model, print=lambda *_a, **_k: None
         )
         self.sandbox = CognitiveSandbox(
-            self.client, self.memory, self.state, self.model, print=self._capture_print
+            self.client,
+            self.memory,
+            self.state,
+            self.model,
+            self.twin_model,
+            print=self._capture_print,
         )
         self.life_path = LifePathEngine(
-            self.client, self.memory, self.state, model=self.model
+            self.client,
+            self.memory,
+            self.state,
+            self.twin_model,
+            model=self.model,
         )
         # Seed graph immediately; LLM refresh happens on first /api/life-path if still seed
         self.life_path.load_or_seed()
@@ -79,6 +85,7 @@ class AppRuntime:
     def after_water(self, reason: str) -> dict[str, Any]:
         """Archive current future into history and grow a new tree."""
         try:
+            self.twin_model.refresh(reason=reason)
             return self.life_path.regenerate(reason=reason, archive=True)
         except Exception as exc:
             data = self.life_path.load_or_seed()
@@ -158,6 +165,16 @@ def _memory_augmented(user_line: str, memory: MemoryManager) -> str:
     )
 
 
+def _with_twin_model(content: str, rt: AppRuntime) -> str:
+    return (
+        "[Durable twin model]\n"
+        f"{rt.twin_model.compact_context()}\n\n"
+        "Treat claims as revisable hypotheses. Use them to make the answer person-specific, "
+        "and state when the model lacks evidence.\n\n"
+        f"{content}"
+    )
+
+
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
 
@@ -172,6 +189,14 @@ class BoardIn(BaseModel):
 
 class SimulateIn(BaseModel):
     choice: str = Field(min_length=1, max_length=4000)
+
+
+class CommitIn(BaseModel):
+    node_id: str = Field(min_length=1, max_length=120)
+
+
+class RealityCheckIn(BaseModel):
+    note: str = Field(min_length=1, max_length=4000)
 
 
 @app.get("/")
@@ -192,10 +217,12 @@ def health() -> dict[str, Any]:
 @app.get("/api/state")
 def get_state() -> dict[str, Any]:
     rt = _rt()
-    return {
-        **asdict(rt.state),
-        "memory_events": rt.memory.count_events(),
-    }
+    return {"memory_events": rt.memory.count_events()}
+
+
+@app.get("/api/profile")
+def get_profile() -> dict[str, Any]:
+    return _rt().twin_model.load()
 
 
 @app.post("/api/chat")
@@ -205,10 +232,13 @@ async def chat(body: ChatIn) -> StreamingResponse:
     if not user_line:
         raise HTTPException(status_code=400, detail="Empty message")
 
-    deduction_mode = is_deduction_request(user_line)
-    user_for_model = _memory_augmented(user_line, rt.memory)
-    if deduction_mode:
-        user_for_model = user_for_model + "\n\n" + deduction_instruction_block(rt.state)
+    user_for_model = _with_twin_model(_memory_augmented(user_line, rt.memory), rt)
+    if is_deduction_request(user_line):
+        user_for_model += (
+            "\n\n[Choice protocol] Do not invent exact resource scores. Identify observed "
+            "constraints, inferred pressures, and unknown variables. If uncertainty changes the "
+            "outcome, describe multiple counterfactual worlds instead of one answer."
+        )
     system = {
         "role": "system",
         "content": rt.messages[0]["content"],
@@ -217,53 +247,20 @@ async def chat(body: ChatIn) -> StreamingResponse:
 
     async def gen() -> AsyncIterator[str]:
         try:
-            if deduction_mode:
-                yield _sse({"type": "status", "text": "Working through it…"})
-                stream = rt.client.chat.completions.create(
-                    model=rt.model,
-                    messages=turn_messages,
-                    stream=True,
-                )
-                buf: list[str] = []
-                for event in stream:
-                    if not event.choices:
-                        continue
-                    delta = event.choices[0].delta
-                    if delta and delta.content:
-                        buf.append(delta.content)
-                full = "".join(buf)
-                display, outcome = evaluate_deduction_reply(rt.state, full)
-                if outcome == "intercepted":
-                    yield _sse({"type": "alert", "text": PHYSICAL_ALERT})
-                    yield _sse({"type": "done", "state": asdict(rt.state)})
-                    return
-                if outcome == "no_json":
-                    yield _sse(
-                        {
-                            "type": "warn",
-                            "text": "No valid cost JSON found; physical numbers were left unchanged.",
-                        }
-                    )
-                reply = display
-                # Stream display in small chunks for UI parity
-                step = 12
-                for i in range(0, len(reply), step):
-                    yield _sse({"type": "token", "text": reply[i : i + step]})
-            else:
-                stream = rt.client.chat.completions.create(
-                    model=rt.model,
-                    messages=turn_messages,
-                    stream=True,
-                )
-                buf = []
-                for event in stream:
-                    if not event.choices:
-                        continue
-                    delta = event.choices[0].delta
-                    if delta and delta.content:
-                        buf.append(delta.content)
-                        yield _sse({"type": "token", "text": delta.content})
-                reply = "".join(buf)
+            stream = rt.client.chat.completions.create(
+                model=rt.model,
+                messages=turn_messages,
+                stream=True,
+            )
+            buf = []
+            for event in stream:
+                if not event.choices:
+                    continue
+                delta = event.choices[0].delta
+                if delta and delta.content:
+                    buf.append(delta.content)
+                    yield _sse({"type": "token", "text": delta.content})
+            reply = "".join(buf)
 
             rt.messages.append({"role": "user", "content": user_line})
             rt.messages.append({"role": "assistant", "content": reply})
@@ -276,10 +273,7 @@ async def chat(body: ChatIn) -> StreamingResponse:
             yield _sse(
                 {
                     "type": "done",
-                    "state": {
-                        **asdict(rt.state),
-                        "memory_events": rt.memory.count_events(),
-                    },
+                    "state": {"memory_events": rt.memory.count_events()},
                 }
             )
         except Exception as exc:
@@ -298,6 +292,7 @@ def water_note(body: NoteIn) -> dict[str, Any]:
         "results": [_result_dict(r) for r in results],
         "memory_events": rt.memory.count_events(),
         "life_path": life,
+        "profile": rt.twin_model.load(),
     }
 
 
@@ -343,6 +338,7 @@ async def water_upload(files: list[UploadFile] = File(...)) -> dict[str, Any]:
             "results": [_result_dict(r) for r in all_results],
             "memory_events": rt.memory.count_events(),
             "life_path": life,
+            "profile": rt.twin_model.load(),
         }
     except HTTPException:
         shutil.rmtree(batch_dir, ignore_errors=True)
@@ -376,6 +372,33 @@ def regen_life_path(months: int | None = None) -> dict[str, Any]:
     )
 
 
+@app.post("/api/life-path/commit")
+def commit_life_path(body: CommitIn) -> dict[str, Any]:
+    try:
+        return _rt().life_path.commit(body.node_id.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/reality-check")
+def reality_check(body: RealityCheckIn) -> dict[str, Any]:
+    rt = _rt()
+    rt.memory.add_event(
+        "[Reality check]\n" + body.note.strip(),
+        "Reality_Check",
+        source="inline:reality-check",
+        media_kind="observation",
+    )
+    profile = rt.twin_model.refresh(reason="reality-check")
+    life = rt.life_path.regenerate(reason="reality-check", archive=True)
+    return {
+        "ok": True,
+        "memory_events": rt.memory.count_events(),
+        "profile": profile,
+        "life_path": life,
+    }
+
+
 class LifePathEdits(BaseModel):
     positions: dict[str, dict[str, float]] = Field(default_factory=dict)
     edits: dict[str, dict[str, str]] = Field(default_factory=dict)
@@ -396,7 +419,7 @@ def board(body: BoardIn) -> dict[str, Any]:
         rt.sandbox.run_board(dilemma)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return {"ok": True, "output": rt.take_capture(), "state": asdict(rt.state)}
+    return {"ok": True, "output": rt.take_capture()}
 
 
 @app.post("/api/simulate")
@@ -411,10 +434,7 @@ def simulate(body: SimulateIn) -> dict[str, Any]:
     return {
         "ok": True,
         "output": rt.take_capture(),
-        "state": {
-            **asdict(rt.state),
-            "memory_events": rt.memory.count_events(),
-        },
+        "state": {"memory_events": rt.memory.count_events()},
     }
 
 

@@ -2,6 +2,7 @@
 .chroma_db/
 state.json
 life_path.json
+twin_profile.json
 .uploads/
 venv/
 __pycache__/

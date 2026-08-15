@@ -14,6 +14,7 @@ from openai import OpenAI
 from core.config import get_openai_model, get_project_root
 from core.memory_manager import MemoryManager
 from core.state_machine import UserState
+from core.twin_model import TwinModel
 
 LIFE_PATH_FILENAME = "life_path.json"
 MIN_HORIZON = 2
@@ -41,17 +42,11 @@ def _n(
     detail: str,
     *,
     parent: str | None = None,
-    capital: float = 0,
-    energy: float = 0,
-    entropy: float = 0,
 ) -> dict[str, Any]:
     node: dict[str, Any] = {
         "id": nid,
         "label": label,
         "detail": detail,
-        "capital_delta": capital,
-        "energy_delta": energy,
-        "entropy_delta": entropy,
     }
     if parent:
         node["parent"] = parent
@@ -64,31 +59,31 @@ def _default_seed(state: UserState, months: int = DEFAULT_HORIZON) -> dict[str, 
     months = clamp_horizon(months)
 
     m1 = [
-        _n("m1_a", "Gather attention", "Fold the noise into one short list you can actually hold.", capital=-2, energy=-8, entropy=-0.02),
-        _n("m1_b", "Keep drifting", "Stay as you are. The days blur, and nothing asks you back.", energy=-3, entropy=0.04),
-        _n("m1_c", "Make a small bet", "Spend a little so the week has a direction, even a foolish one.", capital=-6, energy=-10, entropy=0.01),
+        _n("m1_a", "Gather attention", "Fold the noise into one short list you can actually hold."),
+        _n("m1_b", "Keep drifting", "Stay as you are. The days blur, and nothing asks you back."),
+        _n("m1_c", "Make a small bet", "Spend a little so the week has a direction, even a foolish one."),
     ]
     m2 = [
-        _n("m2_a1", "Protect the hours", "Guard three mornings. The list either lives there or it doesn't.", parent="m1_a", energy=-12, entropy=-0.03),
-        _n("m2_a2", "Say it out loud", "Tell someone who will remember. A witness changes the temperature.", parent="m1_a", energy=-6, entropy=-0.01),
-        _n("m2_a3", "Polish forever", "The list gets prettier. Nothing leaves the notebook.", parent="m1_a", energy=-4, entropy=0.03),
-        _n("m2_b1", "A knock anyway", "Something outside you forces a turn. Not cruel — just sooner.", parent="m1_b", energy=-9, entropy=0.02),
-        _n("m2_b2", "Soft numbness", "Comfortable, expensive in ways you won't notice yet.", parent="m1_b", energy=-2, entropy=0.05),
-        _n("m2_b3", "Name the stall", "You feel the pause and give it one honest sentence.", parent="m1_b", energy=-5, entropy=-0.01),
-        _n("m2_c1", "Double down", "Put a month of life behind the bet so it can bruise you.", parent="m1_c", capital=-12, energy=-14, entropy=0.02),
-        _n("m2_c2", "Keep a back door", "Progress halves; so does the fear. Both futures get thinner.", parent="m1_c", capital=-4, energy=-7, entropy=0.03),
-        _n("m2_c3", "Walk it back", "The bet becomes a story you tell. You are free, and a little poorer in nerve.", parent="m1_c", capital=-1, energy=-4, entropy=0.01),
+        _n("m2_a1", "Protect the hours", "Guard three mornings. The list either lives there or it doesn't.", parent="m1_a"),
+        _n("m2_a2", "Say it out loud", "Tell someone who will remember. A witness changes the temperature.", parent="m1_a"),
+        _n("m2_a3", "Polish forever", "The list gets prettier. Nothing leaves the notebook.", parent="m1_a"),
+        _n("m2_b1", "A knock anyway", "Something outside you forces a turn. Not cruel — just sooner.", parent="m1_b"),
+        _n("m2_b2", "Soft numbness", "Comfortable, expensive in ways you won't notice yet.", parent="m1_b"),
+        _n("m2_b3", "Name the stall", "You feel the pause and give it one honest sentence.", parent="m1_b"),
+        _n("m2_c1", "Double down", "Put a month of life behind the bet so it can bruise you.", parent="m1_c"),
+        _n("m2_c2", "Keep a back door", "Progress halves; so does the fear. Both futures get thinner.", parent="m1_c"),
+        _n("m2_c3", "Walk it back", "The bet becomes a story you tell. You are free, and a little poorer in nerve.", parent="m1_c"),
     ]
     m3 = [
-        _n("m3_a1", "First proof", "One thing exists that did not exist when this started.", parent="m2_a1", capital=4, energy=-8, entropy=-0.04),
-        _n("m3_a2", "A witness stays", "Someone else can see you're different, and says so.", parent="m2_a2", energy=-5, entropy=-0.02),
-        _n("m3_a3", "Beautiful stall", "The plan is perfect and untouched. Dust on a bright page.", parent="m2_a3", energy=-3, entropy=0.04),
-        _n("m3_b1", "New weather", "You're living someone else's plot, not unkindly.", parent="m2_b1", energy=-8, entropy=0.02),
-        _n("m3_b2", "Same room", "The furniture hasn't moved. You have, a little.", parent="m2_b2", energy=-2, entropy=0.05),
-        _n("m3_b3", "A usable sentence", "The ache became a line you can act on tomorrow morning.", parent="m2_b3", energy=-6, entropy=-0.02),
-        _n("m3_c1", "It has a name", "Other people use the name of the bet without asking what it is.", parent="m2_c1", capital=6, energy=-10, entropy=-0.03),
-        _n("m3_c2", "Split self", "Two futures, both thinner. You keep both keys.", parent="m2_c2", capital=-3, energy=-6, entropy=0.03),
-        _n("m3_c3", "Clean slate", "Nothing owed. The quiet is real, and slightly hollow.", parent="m2_c3", energy=-3, entropy=0.02),
+        _n("m3_a1", "First proof", "One thing exists that did not exist when this started.", parent="m2_a1"),
+        _n("m3_a2", "A witness stays", "Someone else can see you're different, and says so.", parent="m2_a2"),
+        _n("m3_a3", "Beautiful stall", "The plan is perfect and untouched. Dust on a bright page.", parent="m2_a3"),
+        _n("m3_b1", "New weather", "You're living someone else's plot, not unkindly.", parent="m2_b1"),
+        _n("m3_b2", "Same room", "The furniture hasn't moved. You have, a little.", parent="m2_b2"),
+        _n("m3_b3", "A usable sentence", "The ache became a line you can act on tomorrow morning.", parent="m2_b3"),
+        _n("m3_c1", "It has a name", "Other people use the name of the bet without asking what it is.", parent="m2_c1"),
+        _n("m3_c2", "Split self", "Two futures, both thinner. You keep both keys.", parent="m2_c2"),
+        _n("m3_c3", "Clean slate", "Nothing owed. The quiet is real, and slightly hollow.", parent="m2_c3"),
     ]
 
     sequels = [
@@ -120,8 +115,6 @@ def _default_seed(state: UserState, months: int = DEFAULT_HORIZON) -> dict[str, 
                     label,
                     detail,
                     parent=parent["id"],
-                    energy=-4,
-                    entropy=0.01,
                 )
             )
         future_months.append({"month": mi, "label": f"Month {mi}", "nodes": nodes})
@@ -133,11 +126,6 @@ def _default_seed(state: UserState, months: int = DEFAULT_HORIZON) -> dict[str, 
         "trigger": "seed",
         "summary": "Three doors from today. Each door splits three ways. After that, those nine lives simply continue.",
         "today_label": "You, here",
-        "state_snapshot": {
-            "capital": state.capital,
-            "energy": state.energy,
-            "entropy_rate": state.entropy_rate,
-        },
         "past": {
             "trunk": [
                 {"id": "born", "label": "Beginning", "detail": "A blank page, before the twin woke."},
@@ -198,6 +186,7 @@ class LifePathEngine:
         client: OpenAI,
         memory: MemoryManager,
         state: UserState,
+        twin_model: TwinModel | None = None,
         *,
         model: str | None = None,
         path: Path | None = None,
@@ -205,6 +194,7 @@ class LifePathEngine:
         self._client = client
         self._memory = memory
         self._state = state
+        self._twin_model = twin_model
         self._model = model or get_openai_model()
         self._path = path or (get_project_root() / LIFE_PATH_FILENAME)
 
@@ -217,6 +207,9 @@ class LifePathEngine:
                 data["meta"].setdefault("horizon_months", DEFAULT_HORIZON)
                 if self._is_legacy_shape(data):
                     return self._upgrade_legacy(data)
+                horizon = clamp_horizon(data["meta"].get("horizon_months"))
+                self._normalize(data, horizon=horizon)
+                self.save(data)
                 return data
         seed = _default_seed(self._state)
         self.save(seed)
@@ -316,11 +309,13 @@ class LifePathEngine:
                     f"{h.get('text','')[:500]}"
                 )
             mem_block = "\n\n".join(parts)
+        profile_block = (
+            self._twin_model.compact_context()
+            if self._twin_model is not None
+            else "(no durable twin model)"
+        )
 
         past = current.get("past") or {"trunk": [], "closed": []}
-        if archive and current.get("trigger") != "seed":
-            past = self._fold_future_into_past(past, current.get("future") or {})
-
         later_rule = ""
         if horizon >= 3:
             later_rule = (
@@ -338,7 +333,7 @@ class LifePathEngine:
         )
         prompt = (
             "You are Digital Twin's cartographer of lives — not a mind-map generator.\n"
-            "From the user's memory and physical state, draw a branching path of lives they could actually walk.\n"
+            "From the user's evidence and revisable twin model, draw branching lives they could actually walk.\n"
             f"{lang_line}\n"
             f"Horizon: the next {horizon} month(s).\n"
             "Shape (strict):\n"
@@ -355,7 +350,10 @@ class LifePathEngine:
             '    "closed": [{"id":"...","from":"trunk-id or today","label":"...","detail":"..."}]\n'
             "  },\n"
             '  "future": { "months": [ { "month": 1, "label": "Month 1", "nodes": ['
-            '{"id":"m1_a","label":"...","detail":"...","capital_delta":0,"energy_delta":0,"entropy_delta":0}'
+            '{"id":"m1_a","label":"...","detail":"...","plausibility":"plausible|strained|breaks|unknown",'
+            '"plausibility_confidence":0.0,"constraint_basis":["..."],'
+            '"pressure":{"money":"low|medium|high|unknown","energy":"low|medium|high|unknown",'
+            '"coordination":"low|medium|high|unknown"}}'
             "] } ] }\n"
             "}\n"
             "Rules:\n"
@@ -364,10 +362,17 @@ class LifePathEngine:
             "- ids unique. month 2+ nodes MUST set parent.\n"
             "- label: 2–6 words. Concrete. Not 'Career' / 'Health' / 'Plan A'.\n"
             "- detail: one sensory sentence — a room, a cost, a morning. Not a strategy bullet.\n"
-            "- deltas must fit the physical state.\n"
-            f"Physical now: capital={self._state.capital:.1f}, energy={self._state.energy:.1f}, "
-            f"entropy_rate={self._state.entropy_rate:.2f}\n"
+            "- Never invent exact resource numbers. Express pressure qualitatively and keep unknowns unknown.\n"
+            "- plausibility is not desirability: plausible / strained / breaks / unknown.\n"
+            "- constraint_basis must point to a concrete twin-model claim or memory; if none exists, use [].\n"
+            "- Every branch must be causally different because of this person's documented "
+            "patterns or constraints. Avoid advice that could describe anyone.\n"
+            "- A branch may break under a documented constraint. Do not quietly make it easy, "
+            "but never declare impossibility from weak evidence.\n"
             f"Why this map: {reason}\n"
+            f"Active commitment (a choice, not proof it happened):\n"
+            f"{json.dumps(current.get('commitment'), ensure_ascii=False)[:1200]}\n"
+            f"Durable twin model (claims remain uncertain):\n{profile_block}\n"
             f"Memory:\n{mem_block}\n"
             f"Existing past (keep continuity):\n{json.dumps(past, ensure_ascii=False)[:2500]}"
         )
@@ -394,14 +399,10 @@ class LifePathEngine:
             "trigger": reason,
             "summary": parsed.get("summary") or current.get("summary") or "",
             "today_label": parsed.get("today_label") or "You, here",
-            "state_snapshot": {
-                "capital": self._state.capital,
-                "energy": self._state.energy,
-                "entropy_rate": self._state.entropy_rate,
-            },
             "past": parsed.get("past") or past,
             "future": parsed.get("future") or current.get("future"),
             "history": history,
+            "commitment": current.get("commitment"),
             "meta": {
                 "today": datetime.now().strftime("%Y-%m-%d"),
                 "horizon_months": horizon,
@@ -413,14 +414,23 @@ class LifePathEngine:
         return data
 
     def _fold_future_into_past(
-        self, past: dict[str, Any], future: dict[str, Any]
+        self,
+        past: dict[str, Any],
+        future: dict[str, Any],
+        *,
+        commitment: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         trunk = list(past.get("trunk") or [])
         closed = list(past.get("closed") or [])
         months = future.get("months") or []
         first = (months[0].get("nodes") or []) if months else []
-        if first:
-            head = first[0]
+        committed_id = str((commitment or {}).get("node_id") or "")
+        committed_path = set((commitment or {}).get("path_ids") or [])
+        head = next(
+            (node for node in first if node.get("id") in committed_path or node.get("id") == committed_id),
+            None,
+        )
+        if head:
             trunk.append(
                 {
                     "id": f"hist_{head.get('id', uuid.uuid4().hex[:6])}",
@@ -430,6 +440,8 @@ class LifePathEngine:
             )
             origin = trunk[-1]["id"] if trunk else "today"
             for n in first:
+                if n.get("id") == head.get("id"):
+                    continue
                 closed.append(
                     {
                         "id": f"closed_{n.get('id', uuid.uuid4().hex[:6])}",
@@ -439,6 +451,51 @@ class LifePathEngine:
                     }
                 )
         return {"trunk": trunk[-5:], "closed": closed[-8:]}
+
+    def commit(self, node_id: str) -> dict[str, Any]:
+        """Record an explicit choice without pretending the predicted future already happened."""
+        data = self.load_or_seed()
+        months = (data.get("future") or {}).get("months") or []
+        by_id: dict[str, dict[str, Any]] = {}
+        for month in months:
+            for node in month.get("nodes") or []:
+                by_id[str(node.get("id", ""))] = node
+        node = by_id.get(node_id)
+        if node is None:
+            raise ValueError("Path node not found.")
+        path_ids: list[str] = []
+        cursor: dict[str, Any] | None = node
+        seen: set[str] = set()
+        while cursor is not None:
+            cursor_id = str(cursor.get("id", ""))
+            if not cursor_id or cursor_id in seen:
+                break
+            seen.add(cursor_id)
+            path_ids.append(cursor_id)
+            cursor = by_id.get(str(cursor.get("parent") or ""))
+        path_ids.reverse()
+        commitment = {
+            "node_id": node_id,
+            "path_ids": path_ids,
+            "label": node.get("label", ""),
+            "detail": node.get("detail", ""),
+            "committed_at": _now_iso(),
+            "predicted_pressure": node.get("pressure", {}),
+            "plausibility": node.get("plausibility", "unknown"),
+            "status": "active",
+        }
+        data["commitment"] = commitment
+        self.save(data)
+        self._memory.add_event(
+            "[Committed path]\n"
+            f"Choice: {commitment['label']}\n"
+            f"Expected life: {commitment['detail']}\n"
+            f"Path ids: {', '.join(path_ids)}",
+            "Choice_Commitment",
+            source="life-path",
+            media_kind="decision",
+        )
+        return data
 
     def apply_edits(
         self,
@@ -510,6 +567,32 @@ class LifePathEngine:
             m.setdefault("nodes", [])
             ordered.append(m)
         future["months"] = ordered
+        self._normalize_constraints(ordered)
         data.setdefault("history", [])
+        data.pop("state_snapshot", None)
         meta = data.setdefault("meta", {})
         meta["horizon_months"] = horizon
+
+    def _normalize_constraints(self, months: list[dict[str, Any]]) -> None:
+        """Expose uncertainty instead of laundering weak evidence into exact meters."""
+        valid_plausibility = {"plausible", "strained", "breaks", "unknown"}
+        valid_pressure = {"low", "medium", "high", "unknown"}
+        for month in months:
+            for node in month.get("nodes") or []:
+                plausibility = str(node.get("plausibility") or "unknown").lower()
+                node["plausibility"] = (
+                    plausibility if plausibility in valid_plausibility else "unknown"
+                )
+                try:
+                    confidence = float(node.get("plausibility_confidence", 0) or 0)
+                except (TypeError, ValueError):
+                    confidence = 0.0
+                node["plausibility_confidence"] = max(0.0, min(1.0, confidence))
+                basis = node.get("constraint_basis")
+                node["constraint_basis"] = basis[:4] if isinstance(basis, list) else []
+                pressure = node.get("pressure") if isinstance(node.get("pressure"), dict) else {}
+                normalized_pressure: dict[str, str] = {}
+                for key in ("money", "energy", "coordination"):
+                    value = str(pressure.get(key) or "unknown").lower()
+                    normalized_pressure[key] = value if value in valid_pressure else "unknown"
+                node["pressure"] = normalized_pressure

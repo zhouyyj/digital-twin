@@ -33,6 +33,13 @@
   const horizonPlus = document.getElementById("horizonPlus");
   const horizonValue = document.getElementById("horizonValue");
   const pathsTitle = document.getElementById("pathsTitle");
+  const profileSummary = document.getElementById("profileSummary");
+  const profileConfidence = document.getElementById("profileConfidence");
+  const profileSignals = document.getElementById("profileSignals");
+  const commitmentBanner = document.getElementById("commitmentBanner");
+  const commitBtn = document.getElementById("commitBtn");
+  const inspForecast = document.getElementById("inspForecast");
+  const realityBtn = document.getElementById("realityBtn");
   const HORIZON_KEY = "digital-twin-horizon";
 
   function clampHorizon(n) {
@@ -74,15 +81,45 @@
     return data.detail ? JSON.stringify(data.detail) : fallback;
   }
 
-  function setMeters(state) {
+  function setCoverage(state) {
     if (!state) return;
-    const fmt = (n) => (typeof n === "number" ? n.toFixed(2) : "—");
-    document.getElementById("m-capital").textContent = fmt(state.capital);
-    document.getElementById("m-energy").textContent = fmt(state.energy);
-    document.getElementById("m-entropy").textContent = fmt(state.entropy_rate);
     if (state.memory_events != null) {
       document.getElementById("m-memory").textContent = String(state.memory_events);
+      document.getElementById("coverageObserved").textContent = String(state.memory_events);
     }
+  }
+
+  function claimText(item) {
+    return typeof item === "string" ? item : item?.claim || "";
+  }
+
+  function renderProfile(profile) {
+    if (!profile) return;
+    profileSummary.textContent = profile.summary || "Not enough evidence yet.";
+    const confidence = Number(profile.confidence) || 0;
+    profileConfidence.textContent = confidence < 0.35
+      ? "low confidence"
+      : confidence < 0.7
+        ? "developing model"
+        : "stronger evidence";
+    const inferred = ["values", "patterns", "constraints", "assets", "tensions"]
+      .reduce((n, key) => n + (profile[key]?.length || 0), 0);
+    document.getElementById("coverageInferred").textContent = String(inferred);
+    document.getElementById("coverageUnknown").textContent = String(profile.unknowns?.length || 0);
+    profileSignals.innerHTML = "";
+    const signals = [
+      ...(profile.constraints || []).slice(0, 2).map((x) => ({ text: claimText(x), type: "constraint" })),
+      ...(profile.patterns || []).slice(0, 2).map((x) => ({ text: claimText(x), type: "pattern" })),
+      ...(profile.unknowns || []).slice(0, 1).map((x) => ({ text: claimText(x), type: "unknown" })),
+    ];
+    signals.forEach(({ text, type }) => {
+      if (!text) return;
+      const el = document.createElement("span");
+      el.className = `signal ${type}`;
+      el.textContent = text;
+      el.title = text;
+      profileSignals.appendChild(el);
+    });
   }
 
   function addBubble(role, text) {
@@ -132,12 +169,22 @@
     const readOnly = Boolean(viewingArchive);
     inspLabel.disabled = readOnly;
     inspDetail.disabled = readOnly;
-    const deltas = [];
-    if (n.capital_delta != null) deltas.push(`${t("deltaCapital")} ${fmtDelta(n.capital_delta)}`);
-    if (n.energy_delta != null) deltas.push(`${t("deltaEnergy")} ${fmtDelta(n.energy_delta)}`);
-    if (n.entropy_delta != null) deltas.push(`${t("deltaEntropy")} ${fmtDelta(n.entropy_delta)}`);
-    if (n.kind === "closed") deltas.push(t("inspClosed"));
-    inspDeltas.textContent = deltas.join(" · ");
+    const plausibility = n.plausibility || "unknown";
+    const confidenceValue = Number(n.plausibility_confidence) || 0;
+    const confidence = confidenceValue < 0.35 ? "weak evidence" : confidenceValue < 0.7 ? "partial evidence" : "stronger evidence";
+    inspDeltas.textContent = n.kind === "closed"
+      ? "CLOSED IN RECORDED HISTORY"
+      : `${plausibility.toUpperCase()} · ${confidence}`;
+    const pressure = n.pressure || {};
+    const pressureText = ["money", "energy", "coordination"]
+      .map((key) => `${key}: ${pressure[key] || "unknown"}`).join(" · ");
+    const basis = (n.constraint_basis || []).join("; ");
+    inspForecast.textContent = `${pressureText}${basis ? `\nBasis: ${basis}` : "\nBasis: insufficient evidence"}`;
+    commitBtn.hidden = readOnly || n.id === "today" || n.kind === "trunk" || n.kind === "closed";
+    commitBtn.disabled = false;
+    commitBtn.textContent = n.plausibility === "breaks"
+      ? "Commit despite the constraint"
+      : "Commit to this path";
     inspHint.textContent = readOnly ? t("inspHintArchive") : t("inspHintEdit");
   }
 
@@ -222,19 +269,6 @@
     }
   }
 
-  function fmtDelta(n) {
-    const v = Number(n);
-    if (Number.isNaN(v)) return String(n);
-    return (v >= 0 ? "+" : "") + v;
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
-  }
-
   function paintLifePath(data, { archive } = {}) {
     viewingArchive = archive || null;
     closeInspector();
@@ -279,6 +313,11 @@
       labels: pathLabels,
     });
     historyCount.textContent = String((data.history || []).length);
+    const commitment = archive ? null : data.commitment;
+    commitmentBanner.hidden = !commitment;
+    commitmentBanner.textContent = commitment
+      ? `ACTIVE COMMITMENT / ${commitment.label} · reality has not been assumed yet`
+      : "";
     if (!archive) {
       const fromMap = data?.meta?.horizon_months;
       if (fromMap) setHorizon(fromMap, { persist: true, silent: true });
@@ -320,7 +359,13 @@
   async function refreshState() {
     const res = await fetch("/api/state", { headers: apiHeaders() });
     if (!res.ok) throw new Error(await res.text());
-    setMeters(await res.json());
+    setCoverage(await res.json());
+  }
+
+  async function loadProfile() {
+    const res = await fetch("/api/profile", { headers: apiHeaders() });
+    if (!res.ok) throw new Error(await res.text());
+    renderProfile(await res.json());
   }
 
   async function boot() {
@@ -337,8 +382,7 @@
       healthKey = "healthReady";
       healthLine.textContent = t("healthReady");
       modelLine.textContent = data.model || "";
-      await refreshState();
-      await loadLifePath();
+      await Promise.all([refreshState(), loadProfile(), loadLifePath()]);
     } catch (err) {
       healthKey = "healthUnreachable";
       healthLine.textContent = t("healthUnreachable");
@@ -392,7 +436,7 @@
             addBubble("warn", payload.text);
           } else if (payload.type === "done") {
             cursor.remove();
-            if (payload.state) setMeters(payload.state);
+            if (payload.state) setCoverage(payload.state);
           }
         }
       }
@@ -439,7 +483,9 @@
     addBubble("system", t("wateredMsg", label));
     if (data.memory_events != null) {
       document.getElementById("m-memory").textContent = String(data.memory_events);
+      document.getElementById("coverageObserved").textContent = String(data.memory_events);
     }
+    if (data.profile) renderProfile(data.profile);
     if (data.life_path) {
       lifePathData = data.life_path;
       paintLifePath(lifePathData);
@@ -561,9 +607,18 @@
 
   function openModal(mode) {
     modalMode = mode;
-    modalTitle.textContent = mode === "board" ? t("modalBoardTitle") : t("modalSimTitle");
+    modalTitle.textContent = mode === "board"
+      ? "What are you deciding?"
+      : mode === "sim"
+        ? "Which world should be simulated?"
+        : "What actually happened?";
     modalInput.value = "";
-    modalInput.placeholder = mode === "board" ? t("modalBoardPh") : t("modalSimPh");
+    modalInput.placeholder = mode === "board"
+      ? "Name the real tension, not only the two options."
+      : mode === "sim"
+        ? "If I spend three months on this…"
+        : "Describe observable events. The twin will revise itself without asking you for a score.";
+    modalOk.textContent = mode === "reality" ? "Update the model" : "Run";
     overlay.classList.remove("hidden");
     overlay.setAttribute("aria-hidden", "false");
     modalInput.focus();
@@ -577,6 +632,7 @@
 
   document.getElementById("boardBtn").addEventListener("click", () => openModal("board"));
   document.getElementById("simBtn").addEventListener("click", () => openModal("sim"));
+  realityBtn.addEventListener("click", () => openModal("reality"));
   modalCancel.addEventListener("click", closeModal);
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) closeModal();
@@ -588,20 +644,58 @@
     const mode = modalMode;
     closeModal();
     setBusy(true);
-    showView("chat");
-    addBubble("system", mode === "board" ? t("boardRunning") : t("simRunning"));
+    if (mode !== "reality") showView("chat");
+    addBubble("system", mode === "board"
+      ? "Comparing the conflict from three positions…"
+      : mode === "sim"
+        ? "Running three counterfactual worlds…"
+        : "Revising the twin from observed reality…");
     try {
-      const res = await fetch(mode === "board" ? "/api/board" : "/api/simulate", {
+      const endpoint = mode === "board"
+        ? "/api/board"
+        : mode === "sim"
+          ? "/api/simulate"
+          : "/api/reality-check";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(
-          mode === "board" ? { dilemma: text } : { choice: text }
+          mode === "board" ? { dilemma: text } : mode === "sim" ? { choice: text } : { note: text }
         ),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(errText(data, "sandbox failed"));
-      addBubble("mirror", data.output || t("noOutput"));
-      if (data.state) setMeters(data.state);
+      if (mode === "reality") {
+        renderProfile(data.profile);
+        lifePathData = data.life_path;
+        paintLifePath(lifePathData);
+        setCoverage({ memory_events: data.memory_events });
+        showView("paths");
+      } else {
+        addBubble("mirror", data.output || t("noOutput"));
+      }
+      if (data.state) setCoverage(data.state);
+    } catch (err) {
+      addBubble("warn", String(err.message || err));
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  commitBtn.addEventListener("click", async () => {
+    if (!selectedNode || busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/life-path/commit", {
+        method: "POST",
+        headers: apiHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ node_id: selectedNode.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(errText(data, "Could not commit to this path."));
+      lifePathData = data;
+      paintLifePath(data);
+      addBubble("system", `Recorded commitment: ${data.commitment?.label || selectedNode.label}. Prediction remains separate from reality.`);
     } catch (err) {
       addBubble("warn", String(err.message || err));
     } finally {

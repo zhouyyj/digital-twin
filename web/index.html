@@ -3,102 +3,103 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Digital Twin</title>
+  <title>Mirror — Personal World Simulator</title>
   <meta
     name="description"
-    content="Digital Twin: add diaries and photos, then see possible months ahead."
+    content="A personal world simulator grounded in your evidence, constraints, and choices."
   />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;700&family=Outfit:wght@400;500&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
   <meta http-equiv="Cache-Control" content="no-store" />
-  <link rel="stylesheet" href="/assets/app.css?v=11" />
+  <link rel="stylesheet" href="/assets/app.css?v=20" />
 </head>
 <body>
-  <div class="pixel-field" aria-hidden="true"></div>
   <div class="shell">
-    <aside class="rail wood">
+    <aside class="rail">
       <div class="brand-block">
-        <img class="plot-sprite" src="/assets/plot.svg" alt="" width="64" height="64" />
-        <p class="brand-kicker" data-i18n="kicker">Local</p>
-        <h1 class="brand">Digital Twin</h1>
-        <p class="brand-sub" data-i18n="brandSub">Add files and notes. Then see possible paths.</p>
+        <p class="brand-kicker">MIRROR / LOCAL SIMULATION</p>
+        <h1 class="brand">A model of you,<br /><em>under pressure.</em></h1>
+        <p class="brand-sub">Not advice for the average person. A revisable model built from your evidence, limits, and actual choices.</p>
       </div>
 
       <nav class="tabs" role="tablist">
-        <button type="button" class="tab active" data-view="chat" role="tab" data-i18n="tabChat">Chat</button>
-        <button type="button" class="tab" data-view="paths" role="tab" data-i18n="tabPaths">Life path</button>
+        <button type="button" class="tab active" data-view="chat" role="tab">01 / MIRROR</button>
+        <button type="button" class="tab" data-view="paths" role="tab">02 / WORLDS</button>
       </nav>
 
-      <div class="meters" id="meters">
-        <div class="meter"><span data-i18n="meterCapital">Capital</span><strong id="m-capital">—</strong></div>
-        <div class="meter"><span data-i18n="meterEnergy">Energy</span><strong id="m-energy">—</strong></div>
-        <div class="meter"><span data-i18n="meterEntropy">Entropy</span><strong id="m-entropy">—</strong></div>
-        <div class="meter"><span data-i18n="meterMemory">Memory</span><strong id="m-memory">—</strong></div>
-      </div>
+      <section class="profile-card" aria-labelledby="profileTitle">
+        <div class="section-label-row">
+          <span class="section-label" id="profileTitle">TWIN MODEL</span>
+          <span class="confidence" id="profileConfidence">low confidence</span>
+        </div>
+        <p class="profile-summary" id="profileSummary">Waiting for evidence.</p>
+        <div class="profile-signals" id="profileSignals"></div>
+      </section>
 
-      <div
-        class="drop"
-        id="drop"
-        tabindex="0"
-        role="button"
-        data-i18n-aria="dropAria"
-        aria-label="Drop files to add to memory"
-      >
-        <div class="soil" aria-hidden="true"></div>
-        <h2 data-i18n="dropTitle">Add files</h2>
-        <p data-i18n="dropBody" data-i18n-mode="html">
-          Drop a diary, photo, or document.<br />A new path is generated. The previous path is saved in History.
-        </p>
-        <input id="fileInput" type="file" multiple hidden />
-        <div class="drop-status" id="dropStatus" data-i18n="dropWaiting">Drop files here</div>
-      </div>
+      <section class="coverage-card" aria-labelledby="coverageTitle">
+        <div class="section-label-row">
+          <span class="section-label" id="coverageTitle">MODEL COVERAGE</span>
+          <span class="memory-count"><strong id="m-memory">—</strong> observations</span>
+        </div>
+        <div class="coverage" id="meters">
+          <div><strong id="coverageObserved">—</strong><span>observed</span></div>
+          <div><strong id="coverageInferred">—</strong><span>inferred</span></div>
+          <div><strong id="coverageUnknown">—</strong><span>unknown</span></div>
+        </div>
+        <button type="button" class="text-btn" id="realityBtn">Record what actually happened →</button>
+      </section>
 
-      <label class="note-label" for="noteInput" data-i18n="noteLabel">Note</label>
-      <textarea
-        id="noteInput"
-        rows="3"
-        data-i18n-placeholder="notePlaceholder"
-        placeholder="What happened today… ⌘/Ctrl + Enter to save"
-      ></textarea>
-      <button type="button" class="btn btn-ghost" id="noteBtn" data-i18n="noteBtn">Save note</button>
+      <details class="evidence-drawer">
+        <summary><span>ADD EVIDENCE</span><span>＋</span></summary>
+        <div class="evidence-body">
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Drop files to add to memory">
+            <h2>Files become evidence</h2>
+            <p>Diary, photo, or document. The twin model is revised before new worlds are generated.</p>
+            <input id="fileInput" type="file" multiple hidden />
+            <div class="drop-status" id="dropStatus">Choose or drop files</div>
+          </div>
+          <label class="note-label" for="noteInput">OBSERVATION</label>
+          <textarea id="noteInput" rows="3" placeholder="What happened—not what should have happened."></textarea>
+          <button type="button" class="btn btn-secondary" id="noteBtn">Save observation</button>
+        </div>
+      </details>
 
       <div class="tool-row">
-        <button type="button" class="btn btn-ghost" id="boardBtn" data-i18n="boardBtn">Compare options</button>
-        <button type="button" class="btn btn-ghost" id="simBtn" data-i18n="simBtn">Simulate</button>
+        <button type="button" class="btn btn-secondary" id="boardBtn">Compare</button>
+        <button type="button" class="btn btn-secondary" id="simBtn">Run 3 months</button>
       </div>
-
-      <p class="rail-foot" id="healthLine" data-i18n="healthConnecting">Connecting…</p>
+      <p class="rail-foot"><span class="status-dot"></span><span id="healthLine">Connecting…</span><span id="modelLine"></span></p>
     </aside>
 
-    <main class="stage wood">
+    <main class="stage">
       <section class="view view-chat" id="view-chat">
         <header class="stage-head">
-          <span class="sys" data-i18n="chatTitle">Chat</span>
-          <span class="sys dim" id="modelLine"></span>
+          <div>
+            <span class="eyebrow">THE MIRROR</span>
+            <h2>What hypothesis are you<br /><em>afraid to test?</em></h2>
+          </div>
+          <p class="head-note">The answer is conditioned on your model.<br />Uncertainty stays visible.</p>
         </header>
         <div class="log" id="log" aria-live="polite"></div>
         <form class="composer" id="composer">
           <textarea
             id="prompt"
             rows="1"
-            data-i18n-placeholder="chatPlaceholder"
-            placeholder="Type a message… Enter to send, Shift+Enter for a new line."
+            placeholder="State a choice, contradiction, or future you want to test…"
             required
           ></textarea>
-          <button class="btn" type="submit" id="sendBtn" data-i18n="send">Send</button>
+          <button class="btn" type="submit" id="sendBtn">Ask the twin ↗</button>
         </form>
       </section>
 
       <section class="view view-paths hidden" id="view-paths">
         <header class="stage-head paths-head">
           <div>
-            <span class="sys" id="pathsTitle" data-i18n="pathsTitle">The next 3 months</span>
-            <p class="path-summary" id="pathSummary" data-i18n="pathsLoading">Loading…</p>
-            <p class="path-hint" data-i18n="pathsHint">3 branches, then 3 from each · drag · pan · scroll to zoom</p>
+            <span class="eyebrow">POSSIBLE WORLDS</span>
+            <h2 id="pathsTitle">The next 3 months</h2>
+            <p class="path-summary" id="pathSummary">Loading…</p>
+            <p class="path-hint">Prediction is not history. Commit to a node only when you mean it.</p>
           </div>
           <div class="path-actions">
             <div class="horizon-ctl" role="group" data-i18n-aria="horizonAria" aria-label="How many months ahead">
@@ -106,10 +107,12 @@
               <span class="horizon-value" id="horizonValue">3 months</span>
               <button type="button" class="horizon-btn" id="horizonPlus" aria-label="More months">+</button>
             </div>
-            <button type="button" class="btn btn-ghost" id="resetCamBtn" data-i18n="resetCam">Center</button>
-            <button type="button" class="btn btn-ghost" id="regenPathBtn" data-i18n="regen">Regenerate</button>
+            <button type="button" class="btn btn-secondary" id="resetCamBtn">Center</button>
+            <button type="button" class="btn" id="regenPathBtn">Recalculate</button>
           </div>
         </header>
+
+        <div class="commitment-banner" id="commitmentBanner" hidden></div>
 
         <div class="path-workspace">
           <svg id="pathSvg" xmlns="http://www.w3.org/2000/svg" role="img" data-i18n-aria="pathMapAria" aria-label="Life path map"></svg>
@@ -123,13 +126,15 @@
               <textarea id="inspDetail" rows="4" maxlength="800"></textarea>
             </label>
             <p class="insp-deltas" id="inspDeltas"></p>
-            <p class="insp-hint" id="inspHint" data-i18n="inspHintEdit">Edits save automatically. You can also drag the node.</p>
+            <p class="forecast" id="inspForecast"></p>
+            <button type="button" class="btn" id="commitBtn">Commit to this path</button>
+            <p class="insp-hint" id="inspHint">Editing changes the map. Committing changes your recorded history.</p>
           </aside>
         </div>
 
         <details class="history-drawer" id="historyDrawer">
           <summary>
-            <span data-i18n="historyTitle">History</span>
+            <span>PREVIOUS PREDICTIONS</span>
             <span class="sys dim" id="historyCount">0</span>
           </summary>
           <div class="history-list" id="historyList"></div>
@@ -143,14 +148,14 @@
       <h3 id="modalTitle">Think</h3>
       <textarea id="modalInput" rows="4"></textarea>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="modalCancel" data-i18n="modalCancel">Cancel</button>
-        <button type="button" class="btn" id="modalOk" data-i18n="modalOk">Run</button>
+        <button type="button" class="btn btn-secondary" id="modalCancel">Cancel</button>
+        <button type="button" class="btn" id="modalOk">Run</button>
       </div>
     </div>
   </div>
 
-  <script src="/assets/i18n.js?v=11"></script>
-  <script src="/assets/life-path.js?v=11"></script>
-  <script src="/assets/app.js?v=11"></script>
+  <script src="/assets/i18n.js?v=20"></script>
+  <script src="/assets/life-path.js?v=20"></script>
+  <script src="/assets/app.js?v=20"></script>
 </body>
 </html>

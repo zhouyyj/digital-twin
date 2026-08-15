@@ -12,18 +12,15 @@ from core.feeder import PersonalFeeder
 from core.memory_manager import MemoryManager
 from core.sandbox import CognitiveSandbox
 from core.state_machine import (
-    PHYSICAL_ALERT,
     UserState,
-    deduction_instruction_block,
-    evaluate_deduction_reply,
     is_deduction_request,
 )
+from core.twin_model import TwinModel
 
 SYSTEM_PROMPT = (
-    "You are my digital twin. Speak with extreme restraint and precision; "
-    "use questions to cut into my thinking. You may use diaries, documents, "
-    "and image descriptions I have watered into memory; do not pretend to see "
-    "private material that was never given. Reply in English."
+    "You are my evidence-bound digital twin. Speak with restraint and precision. "
+    "Separate what is observed, inferred, and unknown. Use questions to cut into "
+    "my thinking; never replace uncertainty with generic advice. Reply in English."
 )
 
 # System chrome: dim green; mirror clone reply: cyan
@@ -50,7 +47,7 @@ def _print_banner() -> None:
     print(f"\n{title}\n{sub}\n")
     print(
         f"{STYLE_SYSTEM}Ask something. "
-        f"{STYLE_DIM}exit / quit / Ctrl+D to leave · /state · /board · /simulate · "
+        f"{STYLE_DIM}exit / quit / Ctrl+D to leave · /model · /board · /simulate · "
         f"/water <path|note:…> · /memory{STYLE_RESET}\n"
     )
 
@@ -75,30 +72,6 @@ def _stream_reply(client: OpenAI, model: str, messages: list[dict]) -> str:
     finally:
         print(STYLE_RESET, flush=True)
     return "".join(buffer)
-
-
-def _collect_stream_reply(client: OpenAI, model: str, messages: list[dict]) -> str:
-    """Stream to memory only (for deduction paths that must be validated before display)."""
-    buffer: list[str] = []
-    stream = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        stream=True,
-    )
-    for event in stream:
-        if not event.choices:
-            continue
-        delta = event.choices[0].delta
-        if delta and delta.content:
-            buffer.append(delta.content)
-    return "".join(buffer)
-
-
-def _print_user_state(state: UserState) -> None:
-    print(f"\n{STYLE_SYSTEM}── Physical remainder (/state) ──{STYLE_RESET}")
-    print(f"{STYLE_SYSTEM}capital       : {state.capital:.2f}{STYLE_RESET}")
-    print(f"{STYLE_SYSTEM}energy        : {state.energy:.2f}{STYLE_RESET}")
-    print(f"{STYLE_SYSTEM}entropy_rate  : {state.entropy_rate:.2f}{STYLE_RESET}\n")
 
 
 def _memory_augmented_user_content(user_line: str, memory: MemoryManager) -> str:
@@ -139,7 +112,8 @@ def main() -> int:
     client = OpenAI(api_key=api_key, base_url=base_url)
     memory = MemoryManager(client)
     user_state = UserState.load()
-    sandbox = CognitiveSandbox(client, memory, user_state, model)
+    twin_model = TwinModel(client, memory, model=model)
+    sandbox = CognitiveSandbox(client, memory, user_state, model, twin_model)
     feeder = PersonalFeeder(client, memory, model=model)
 
     messages: list[dict] = [
@@ -161,8 +135,15 @@ def main() -> int:
             print(f"{STYLE_SYSTEM}Session ended.{STYLE_RESET}")
             break
 
-        if user_line == "/state":
-            _print_user_state(user_state)
+        if user_line in {"/model", "/state"}:
+            profile = twin_model.load()
+            print(f"\n{STYLE_SYSTEM}── Twin model ──{STYLE_RESET}")
+            print(f"{STYLE_CLONE}{profile.get('summary', '')}{STYLE_RESET}")
+            print(
+                f"{STYLE_SYSTEM}confidence={float(profile.get('confidence', 0)):.0%} · "
+                f"observations={profile.get('observations', 0)} · "
+                f"unknowns={len(profile.get('unknowns') or [])}{STYLE_RESET}\n"
+            )
             continue
 
         if user_line == "/memory":
@@ -186,6 +167,7 @@ def main() -> int:
                 )
                 continue
             total = sum(r.chunks for r in results)
+            twin_model.refresh(reason="water:cli")
             print(
                 f"{STYLE_SYSTEM}Watered: {len(results)} file(s) / {total} chunks into memory."
                 f"{STYLE_RESET}\n"
@@ -214,34 +196,22 @@ def main() -> int:
                 )
             continue
 
-        deduction_mode = is_deduction_request(user_line)
-        user_for_model = _memory_augmented_user_content(user_line, memory)
-        if deduction_mode:
-            user_for_model = user_for_model + "\n\n" + deduction_instruction_block(user_state)
+        user_for_model = (
+            "[Durable twin model]\n"
+            f"{twin_model.compact_context()}\n\n"
+            + _memory_augmented_user_content(user_line, memory)
+        )
+        if is_deduction_request(user_line):
+            user_for_model += (
+                "\n\nFor this choice, separate observed constraints, inferred pressure, and unknowns. "
+                "Use counterfactual worlds when uncertainty changes the outcome. Do not invent exact meters."
+            )
 
         turn_messages = [*messages, {"role": "user", "content": user_for_model}]
 
         try:
             print(f"{STYLE_CLONE}twin › {STYLE_RESET}", end="", flush=True)
-            if deduction_mode:
-                reply_full = _collect_stream_reply(client, model, turn_messages)
-                display, outcome = evaluate_deduction_reply(user_state, reply_full)
-                if outcome == "intercepted":
-                    print(
-                        f"{Fore.RED}{PHYSICAL_ALERT}{Style.RESET_ALL}\n",
-                        flush=True,
-                    )
-                    continue
-                if outcome == "no_json":
-                    print(
-                        f"{Fore.YELLOW}[System] No valid cost JSON found; physical numbers were left unchanged."
-                        f"{Style.RESET_ALL}",
-                        file=sys.stderr,
-                    )
-                print(f"{STYLE_CLONE}{display}{STYLE_RESET}\n", flush=True)
-                reply = display
-            else:
-                reply = _stream_reply(client, model, turn_messages)
+            reply = _stream_reply(client, model, turn_messages)
         except Exception as exc:
             print(
                 f"{Fore.RED}[API error] {exc}{Style.RESET_ALL}",
