@@ -108,6 +108,7 @@
               <button type="button" class="horizon-btn" id="horizonPlus" aria-label="More months">+</button>
             </div>
             <button type="button" class="btn btn-secondary" id="resetCamBtn">Center</button>
+            <button type="button" class="btn btn-secondary" id="backCurrentBtn" data-i18n="backToCurrent" hidden>Back to current</button>
             <button type="button" class="btn" id="regenPathBtn">Recalculate</button>
           </div>
         </header>
@@ -134,8 +135,8 @@
 
         <details class="history-drawer" id="historyDrawer">
           <summary>
-            <span>PREVIOUS PREDICTIONS</span>
-            <span class="sys dim" id="historyCount">0</span>
+            <span class="history-heading"><span class="history-chevron" aria-hidden="true">›</span> PREVIOUS PREDICTIONS</span>
+            <span class="history-total"><span id="historyCount">0</span> SAVED</span>
           </summary>
           <div class="history-list" id="historyList"></div>
         </details>
