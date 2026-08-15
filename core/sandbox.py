@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import random
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -12,19 +11,14 @@ from colorama import Fore, Style
 from openai import OpenAI
 
 from core.memory_manager import MemoryManager
-from core.state_machine import (
-    PHYSICAL_ALERT,
-    UserState,
-    deduction_instruction_block,
-    evaluate_deduction_reply,
-)
+from core.state_machine import UserState
+from core.twin_model import TwinModel
 
 PrintFn = Callable[..., None]
 
 _HDR = Fore.GREEN + Style.DIM
 _BODY = Fore.CYAN
 _RST = Style.RESET_ALL
-_WARN = Fore.YELLOW
 
 
 @dataclass(frozen=True)
@@ -65,40 +59,6 @@ _PERSONAS: tuple[_Persona, ...] = (
     ),
 )
 
-_FRICTION_EVENTS: tuple[dict[str, str | float], ...] = (
-    {
-        "label": "A key machine breaks; repair and downtime eat cash",
-        "capital_delta": -10.0,
-        "energy_delta": -7.0,
-        "entropy_rate_delta": 0.02,
-    },
-    {
-        "label": "A partner misses a payment; cashflow tightens",
-        "capital_delta": -14.0,
-        "energy_delta": -6.0,
-        "entropy_rate_delta": 0.04,
-    },
-    {
-        "label": "A reputation shock; defending it costs bandwidth",
-        "capital_delta": -4.0,
-        "energy_delta": -11.0,
-        "entropy_rate_delta": 0.05,
-    },
-    {
-        "label": "A core person leaves; the team has to relearn itself",
-        "capital_delta": -6.0,
-        "energy_delta": -12.0,
-        "entropy_rate_delta": 0.03,
-    },
-    {
-        "label": "A compliance check; unexpected spend",
-        "capital_delta": -9.0,
-        "energy_delta": -5.0,
-        "entropy_rate_delta": 0.02,
-    },
-)
-
-
 def _format_memory_hits(hits: list[dict]) -> str:
     if not hits:
         return "(No nearby memory yet.)"
@@ -130,38 +90,6 @@ def _chat_once(
     return (msg.content or "").strip()
 
 
-def _apply_friction_scaled(state: UserState, ev: dict[str, str | float]) -> tuple[bool, str]:
-    """Apply friction without driving energy negative; scale down if needed."""
-    label = str(ev["label"])
-    for scale in (1.0, 0.55, 0.3):
-        cd = float(ev["capital_delta"]) * scale
-        ed = float(ev["energy_delta"]) * scale
-        er = float(ev["entropy_rate_delta"]) * scale
-        if state.preview_energy_after(ed) < 0:
-            continue
-        if state.apply_deltas(cd, ed, er):
-            suffix = f" (friction ×{scale:g})" if scale < 1.0 else ""
-            return True, f"{label}{suffix}"
-    return False, label
-
-
-def _roll_friction(state: UserState) -> tuple[str | None, str]:
-    """
-    Maybe fire an outside shock, using entropy_rate.
-    Returns (friction line if it landed, human-readable roll note).
-    """
-    p = min(0.9, 0.08 + float(state.entropy_rate) * 1.15)
-    roll = random.random()
-    summary = f"p={p:.2f}, roll={roll:.3f}, entropy_rate={state.entropy_rate:.2f}"
-    if roll >= p:
-        return None, summary
-    ev = random.choice(_FRICTION_EVENTS)
-    ok, desc = _apply_friction_scaled(state, ev)
-    if not ok:
-        return None, summary + " → friction blocked by the physical ceiling"
-    return desc, summary
-
-
 class CognitiveSandbox:
     """Board of minds (parallel views + rebuttal) and stepped monthly simulation."""
 
@@ -171,6 +99,7 @@ class CognitiveSandbox:
         memory: MemoryManager,
         state: UserState,
         model: str,
+        twin_model: TwinModel | None = None,
         *,
         print: PrintFn = print,
     ) -> None:
@@ -178,6 +107,7 @@ class CognitiveSandbox:
         self._memory = memory
         self._state = state
         self._model = model
+        self._twin_model = twin_model
         self._print = print
 
     def run_board(self, dilemma: str) -> None:
@@ -188,6 +118,11 @@ class CognitiveSandbox:
 
         self._print(f"\n{_HDR}══ Cognitive board · sandbox ══{_RST}")
         self._print(f"{_HDR}The bind:{_RST} {d}\n")
+        twin_context = (
+            self._twin_model.compact_context()
+            if self._twin_model is not None
+            else "(no durable twin model)"
+        )
 
         # Sequential retrieval so the vector store is not read concurrently.
         contexts: list[tuple[_Persona, str]] = []
@@ -201,6 +136,7 @@ class CognitiveSandbox:
         def _one_completion(idx: int, persona: _Persona, mem_block: str) -> tuple[int, str, str]:
             user = (
                 f"The bind:\n{d}\n\n{mem_block}\n\n"
+                f"Durable twin model:\n{twin_context}\n\n"
                 "From your seat, give: stance → key arguments (cite memory numbers if useful) → "
                 "a pointed rebuttal of the other two seats (Radical breaker / Rational analyst / Deep reflector). "
                 "Stay under 900 words. No JSON. English only."
@@ -270,58 +206,44 @@ class CognitiveSandbox:
             )
             return
 
-        self._print(f"\n{_HDR}══ Stepped simulation · 3 months ══{_RST}")
+        self._print(f"\n{_HDR}══ Counterfactual simulation · 3 months ══{_RST}")
         self._print(f"{_HDR}Path:{_RST} {c}\n")
+        twin_context = (
+            self._twin_model.compact_context()
+            if self._twin_model is not None
+            else "(no durable twin model)"
+        )
 
-        for month in range(1, 4):
-            self._print(f"{_HDR}── Month {month}/3 ──{_RST}")
-            friction_line, roll_note = _roll_friction(self._state)
-            if friction_line:
-                self._print(f"{_WARN}[Outside friction] {friction_line}{_RST}")
-            else:
-                self._print(f"{_HDR}[Outside friction] none ({roll_note}){_RST}")
-
-            st = self._state
-            user = (
-                f"[Stepped simulation · month {month}/3] Grain: one month.\n"
-                f"Chosen path: {c}\n"
-                f"Physical now: capital={st.capital:.2f}, energy={st.energy:.2f}, "
-                f"entropy_rate={st.entropy_rate:.2f}\n"
-                f"This month's outside friction: {friction_line or 'none (or did not land)'}\n\n"
-                "In concise English, walk the causal chain for this month on this path "
-                "(mood and resource constraints included). Do not restate the JSON protocol.\n"
-                "End with the same Markdown JSON block the app expects, three fields only: "
-                "capital_delta, energy_delta, entropy_rate_delta — the **marginal** effect of "
-                "this path this month (if friction already landed, do not double-count it)."
-                f"\n\n{deduction_instruction_block(st)}"
-            )
-            messages = [
+        hits = self._memory.search_relevant_events(
+            f"{c} past behavior constraint obligation money energy relationship", limit=8
+        )
+        evidence = _format_memory_hits(hits)
+        user = (
+            f"Hypothesis to simulate: {c}\n\n"
+            f"Revisable twin model:\n{twin_context}\n\n"
+            f"Relevant evidence:\n{evidence}\n\n"
+            "Simulate three months without inventing exact resource meters. Produce three "
+            "counterfactual worlds: BASE (current patterns continue), SUPPORT (one external "
+            "condition becomes easier), and FRICTION (one plausible external condition worsens). "
+            "For each world, show month 1 → month 2 → month 3 as a causal chain. Distinguish "
+            "OBSERVED evidence, INFERRED dynamics, and UNKNOWN variables. Name the first constraint "
+            "that becomes binding and one observation that would falsify the simulation. "
+            "Do not recommend a world and do not use numerical energy/capital scores."
+        )
+        output = _chat_once(
+            self._client,
+            self._model,
+            [
                 {
                     "role": "system",
                     "content": (
-                        "You are Digital Twin's monthly sandbox: cold, causal, no pep talk. "
-                        "Honor the physical JSON protocol at the end of the user message. English only."
+                        "You are a counterfactual world simulator. Be causal, person-specific, "
+                        "and explicit about uncertainty. Never turn weak evidence into precision."
                     ),
                 },
                 {"role": "user", "content": user},
-            ]
-            raw = _chat_once(self._client, self._model, messages, temperature=0.55)
-            display, outcome = evaluate_deduction_reply(self._state, raw)
-
-            if outcome == "intercepted":
-                self._print(f"{Fore.RED}{PHYSICAL_ALERT}{_RST}\n")
-                break
-
-            self._print(f"{_BODY}{display}{_RST}\n")
-            if outcome == "no_json":
-                self._print(
-                    f"{_WARN}[System] Month {month}: no valid JSON; state only includes friction if any.{_RST}",
-                    file=sys.stderr,
-                )
-
-        self._print(f"{_HDR}── Physical remainder ──{_RST}")
-        s = self._state
-        self._print(
-            f"{_HDR}capital={s.capital:.2f}  energy={s.energy:.2f}  "
-            f"entropy_rate={s.entropy_rate:.2f}{_RST}\n"
+            ],
+            temperature=0.45,
+            max_tokens=2200,
         )
+        self._print(f"{_BODY}{output}{_RST}\n")

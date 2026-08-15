@@ -3,149 +3,62 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Digital Twin — preview</title>
-  <meta name="description" content="Digital Twin: add diaries and photos, then see possible months ahead." />
+  <title>Mirror — Personal World Simulator</title>
+  <meta name="description" content="A personal world simulator grounded in evidence, uncertainty, and actual choices." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;700&family=Outfit:wght@400;500&display=swap"
-    rel="stylesheet"
-  />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
   <style>
-    :root {
-      --bg: #121214;
-      --panel: #1c1814;
-      --ink: #f4efe6;
-      --muted: #8d8478;
-      --wood: #8b5a3c;
-      --wood-dark: #4a2e1c;
-      --leaf: #4a9c4a;
-      --line: rgba(244, 239, 230, 0.1);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: Outfit, sans-serif;
-      color: var(--ink);
-      background-color: var(--bg);
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-      background-size: 16px 16px;
-      min-height: 100vh;
-      padding: 2rem 1.25rem 3rem;
-    }
-    .wrap { max-width: 980px; margin: 0 auto; }
-    .kicker {
-      font-family: "Pixelify Sans", monospace;
-      color: var(--leaf);
-      letter-spacing: 0.04em;
-      font-size: 0.9rem;
-      margin-bottom: 0.35rem;
-    }
-    h1 {
-      font-family: "Pixelify Sans", monospace;
-      font-size: clamp(2rem, 5vw, 2.8rem);
-      line-height: 1.05;
-      margin-bottom: 0.55rem;
-    }
-    .lead {
-      color: var(--muted);
-      line-height: 1.7;
-      max-width: 42rem;
-      margin-bottom: 1.4rem;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.6rem;
-      margin-bottom: 1.5rem;
-    }
-    .btn {
-      display: inline-block;
-      padding: 0.62rem 1rem;
-      text-decoration: none;
-      font-size: 0.92rem;
-      border: 3px solid var(--wood-dark);
-      background: var(--panel);
-      color: var(--ink);
-      box-shadow: inset 0 0 0 2px var(--wood);
-    }
-    .btn.primary {
-      background: #2a1c12;
-    }
-    .shot {
-      overflow: hidden;
-      border: 4px solid var(--wood-dark);
-      box-shadow: inset 0 0 0 4px var(--wood);
-      background: var(--panel);
-    }
-    .shot img {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-    .note {
-      margin-top: 1rem;
-      font-size: 0.86rem;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-    .features {
-      margin-top: 2rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 0.85rem;
-    }
-    .card {
-      background: var(--panel);
-      border: 3px solid var(--wood-dark);
-      box-shadow: inset 0 0 0 2px var(--wood);
-      padding: 1rem 1.05rem;
-    }
-    .card h2 {
-      font-family: "Pixelify Sans", monospace;
-      font-size: 1.05rem;
-      margin-bottom: 0.35rem;
-    }
-    .card p {
-      color: var(--muted);
-      font-size: 0.88rem;
-      line-height: 1.55;
-    }
+    :root { --bg:#0b0c0d; --panel:#111315; --line:#2a2d2f; --ink:#eeeae1; --soft:#aaa9a3; --muted:#737570; --acid:#c9ff54; --coral:#ff735c; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { min-height:100vh; color:var(--ink); background:radial-gradient(circle at 78% 4%,rgba(201,255,84,.07),transparent 30rem),var(--bg); font-family:Manrope,sans-serif; }
+    .wrap { width:min(1120px,calc(100% - 40px)); margin:0 auto; }
+    nav { min-height:76px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .mark,.kicker,.tag { font:500 10px "DM Mono",monospace; letter-spacing:.13em; text-transform:uppercase; }
+    .mark { color:var(--acid); }
+    nav a { color:var(--soft); text-decoration:none; font:400 11px "DM Mono",monospace; }
+    .hero { min-height:620px; padding:90px 0 70px; display:grid; grid-template-columns:1.15fr .85fr; gap:70px; align-items:center; }
+    .kicker { color:var(--coral); margin-bottom:22px; }
+    h1 { max-width:750px; font:400 clamp(58px,8vw,104px)/.86 Newsreader,serif; letter-spacing:-.055em; }
+    h1 em { color:var(--acid); font-weight:400; }
+    .lead { max-width:570px; margin-top:30px; color:var(--soft); font-size:17px; line-height:1.7; }
+    .actions { display:flex; gap:10px; margin-top:34px; }
+    .btn { padding:14px 18px; border:1px solid var(--line); color:var(--ink); text-decoration:none; font:500 10px "DM Mono",monospace; }
+    .btn.primary { border-color:var(--acid); background:var(--acid); color:#111; }
+    .model { border:1px solid var(--line); background:rgba(17,19,21,.8); padding:24px; }
+    .model-head { display:flex; justify-content:space-between; padding-bottom:18px; border-bottom:1px solid var(--line); color:var(--muted); }
+    .model blockquote { margin:25px 0; font:400 26px/1.2 Newsreader,serif; }
+    .signals { display:flex; flex-wrap:wrap; gap:7px; }
+    .tag { color:var(--soft); border:1px solid var(--line); padding:7px; letter-spacing:0; text-transform:none; }
+    .tag.unknown { border-style:dashed; color:var(--muted); }
+    .principles { border-top:1px solid var(--line); padding:55px 0 90px; display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); }
+    .principle { background:var(--bg); padding:30px; min-height:220px; }
+    .principle span { color:var(--coral); font:400 10px "DM Mono",monospace; }
+    .principle h2 { margin-top:35px; font:400 29px/1.05 Newsreader,serif; }
+    .principle p { color:var(--muted); line-height:1.6; margin-top:14px; font-size:13px; }
+    @media(max-width:760px){.hero{grid-template-columns:1fr;padding-top:60px}.principles{grid-template-columns:1fr}h1{font-size:62px}}
   </style>
 </head>
 <body>
+  <nav class="wrap"><span class="mark">MIRROR / LOCAL SIMULATION</span><a href="https://github.com/zhouyyj/digital-twin">SOURCE ↗</a></nav>
   <main class="wrap">
-    <p class="kicker">Local</p>
-    <h1>Digital Twin</h1>
-    <p class="lead">
-      Add files and notes. Then see possible paths.
-      A local twin with file memory, a physical state, and a branching life-path map.
-    </p>
-    <div class="actions">
-      <a class="btn primary" href="https://github.com/zhouyyj/digital-twin">View on GitHub</a>
-      <a class="btn" href="https://github.com/zhouyyj/digital-twin#setup">Run locally</a>
-    </div>
-    <figure class="shot">
-      <img src="./preview.png" alt="Digital Twin web UI — chat and life path" />
-    </figure>
-    <p class="note">
-      Live demo requires your own OpenAI key and runs on your machine (<code>uvicorn server:app --port 8787</code>).
-      This page is a static preview for visitors.
-    </p>
-    <section class="features">
-      <article class="card">
-        <h2>Add files</h2>
-        <p>Drop diaries, PDFs, and images. They are chunked and stored locally.</p>
-      </article>
-      <article class="card">
-        <h2>Life path</h2>
-        <p>3 branches from today, then 3 from each. Drag and edit nodes. Previous paths stay in History.</p>
-      </article>
-      <article class="card">
-        <h2>Physical state</h2>
-        <p>Capital, energy, and entropy constrain deduction and simulation replies.</p>
-      </article>
+    <section class="hero">
+      <div>
+        <p class="kicker">PERSONAL WORLD SIMULATOR</p>
+        <h1>A model of you,<br /><em>under pressure.</em></h1>
+        <p class="lead">Mirror uses your evidence to build a revisable twin, then simulates worlds shaped by your actual patterns and constraints—not an average person’s advice.</p>
+        <div class="actions"><a class="btn primary" href="https://github.com/zhouyyj/digital-twin#run-locally">RUN LOCALLY</a><a class="btn" href="https://github.com/zhouyyj/digital-twin">READ THE MODEL</a></div>
+      </div>
+      <aside class="model">
+        <div class="model-head"><span class="mark">TWIN MODEL</span><span>REVISABLE</span></div>
+        <blockquote>“Not enough evidence yet. The uncertainty stays visible.”</blockquote>
+        <div class="signals"><span class="tag">observed behavior</span><span class="tag">inferred pattern</span><span class="tag">binding constraint</span><span class="tag unknown">unknown variable</span></div>
+      </aside>
+    </section>
+    <section class="principles">
+      <article class="principle"><span>01 / EVIDENCE</span><h2>The model must earn specificity.</h2><p>Claims keep their evidence and confidence. The system does not learn who you are from its own previous answers.</p></article>
+      <article class="principle"><span>02 / WORLDS</span><h2>Uncertainty creates branches.</h2><p>Base, support, and friction scenarios expose what changes the outcome instead of hiding doubt behind a score.</p></article>
+      <article class="principle"><span>03 / REALITY</span><h2>Prediction is not history.</h2><p>A commitment records a choice. Only later observations establish what actually happened and revise the twin.</p></article>
     </section>
   </main>
 </body>

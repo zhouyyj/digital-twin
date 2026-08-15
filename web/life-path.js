@@ -1,14 +1,14 @@
 window.MirrorLifePath = (() => {
-  const OPEN = "#4a9c4a";
-  const CLOSED = "#6e452c";
-  const CLOSED_STROKE = "#4a2e1c";
-  const TODAY = "#f4d35e";
-  const TRUNK = "#c4895a";
-  const LABEL = "#8d8478";
-  const INK = "#f4efe6";
-  const INK_SOFT = "#c9c0b4";
-  const SERIF = "Pixelify Sans, Outfit, sans-serif";
-  const SANS = "Outfit, Noto Sans SC, sans-serif";
+  const OPEN = "#c9ff54";
+  const CLOSED = "#45494b";
+  const CLOSED_STROKE = "#3a3d3f";
+  const TODAY = "#ff735c";
+  const TRUNK = "#8db5ff";
+  const LABEL = "#737570";
+  const INK = "#eeeae1";
+  const INK_SOFT = "#9c9d98";
+  const SERIF = "Newsreader, serif";
+  const SANS = "Manrope, sans-serif";
 
   function el(name, attrs = {}, text) {
     const node = document.createElementNS("http://www.w3.org/2000/svg", name);
@@ -245,16 +245,16 @@ window.MirrorLifePath = (() => {
       g.appendChild(el("stop", { offset: "100%", "stop-color": c1 }));
       defs.appendChild(g);
     }
-    radial("pebbleToday", "#f4d35e", "#c4895a");
-    radial("pebbleOpen", "#6bb04a", "#2f6b32");
-    radial("pebbleTrunk", "#c4895a", "#6e452c");
-    radial("pebbleClosed", "#8b5a3c", "#4a2e1c");
+    radial("pebbleToday", "#ff8d78", "#ff5e48");
+    radial("pebbleOpen", "#202425", "#111315");
+    radial("pebbleTrunk", "#293441", "#171d24");
+    radial("pebbleClosed", "#282a2b", "#161819");
     const drop = el("filter", { id: "pebbleShadow", x: "-40%", y: "-20%", width: "180%", height: "180%" });
     drop.appendChild(el("feDropShadow", {
       dx: "0.6",
       dy: "1.8",
       stdDeviation: "1.4",
-      "flood-color": "#503428",
+      "flood-color": "#000000",
       "flood-opacity": "0.28",
     }));
     defs.appendChild(drop);
@@ -281,8 +281,8 @@ window.MirrorLifePath = (() => {
     const road = el("path", {
       d: `M 40 ${L.midY} C ${L.todayX * 0.55} ${L.midY - 8}, ${L.todayX * 0.78} ${L.midY + 6}, ${L.todayX} ${L.midY}`,
       fill: "none",
-      stroke: "rgba(176, 137, 104, 0.22)",
-      "stroke-width": 14,
+        stroke: "rgba(141, 181, 255, 0.12)",
+        "stroke-width": 8,
       "stroke-linecap": "round",
     });
     world.appendChild(road);
@@ -316,7 +316,7 @@ window.MirrorLifePath = (() => {
         el("text", {
           x: sample.x,
           y: 32,
-          fill: "rgba(109, 143, 107, 0.85)",
+          fill: "rgba(201, 255, 84, 0.72)",
           "text-anchor": "middle",
           "font-family": SERIF,
           "font-size": 12,
@@ -365,7 +365,15 @@ window.MirrorLifePath = (() => {
             : n.kind === "trunk"
               ? "url(#pebbleTrunk)"
               : "url(#pebbleOpen)";
-      const stroke = "#121214";
+      const stroke = n.plausibility === "breaks"
+        ? "#ff735c"
+        : n.plausibility === "strained"
+          ? "#e6bb5a"
+          : n.kind === "today"
+            ? "#ff735c"
+            : n.kind === "closed"
+              ? "#45494b"
+              : "#c9ff54";
 
       const g = el("g", {
         class: "path-node",
@@ -410,7 +418,7 @@ window.MirrorLifePath = (() => {
           d,
           fill,
           stroke,
-          "stroke-width": n.kind === "today" ? 2.4 : 2,
+          "stroke-width": n.kind === "today" ? 2.4 : n.plausibility === "unknown" ? 1 : 1.7,
           "stroke-linejoin": "miter",
           filter: "url(#pebbleShadow)",
         })
@@ -423,8 +431,8 @@ window.MirrorLifePath = (() => {
           cy: -ry * 0.32,
           rx: rx * 0.32,
           ry: ry * 0.18,
-          fill: "#fffaf4",
-          opacity: 0.28,
+          fill: "#ffffff",
+          opacity: 0.08,
           "pointer-events": "none",
         })
       );

@@ -1,98 +1,84 @@
-# Digital Twin
+# Mirror
+
+**A personal world simulator grounded in evidence, uncertainty, and actual choices.**
 
 <p align="center">
-  <img src="docs/preview.png" alt="Digital Twin — chat and life path" width="920" />
+  <img src="docs/preview.png" alt="Mirror — evidence-bound personal world simulator" width="1200" />
 </p>
 
-<p align="center">
-  <strong>Add files and notes. Then see possible paths.</strong><br />
-  A local digital twin with file memory, a physical state machine, and a branching life-path map.
-</p>
+Mirror is not a generic advice bot and it does not ask you to rate your life with precise
+energy or money scores. You add observations, diaries, documents, and images. Mirror turns
+that evidence into a revisable Twin Model, then uses it to simulate possible worlds that are
+specific to your patterns and constraints.
 
-<p align="center">
-  <a href="https://zhouyyj.github.io/digital-twin/">Preview page</a> ·
-  <a href="#setup">Run locally</a>
-</p>
+## The product loop
 
----
+1. **Add evidence** — a note, diary, document, or photo.
+2. **Revise the Twin Model** — values, repeated patterns, constraints, assets, tensions, and
+   unknowns are stored with evidence and confidence.
+3. **Test a hypothesis** — ask the mirror, compare a conflict, or run three counterfactual
+   worlds over three months.
+4. **Inspect possible worlds** — branches show qualitative pressure, plausibility, supporting
+   evidence, and uncertainty rather than invented resource precision.
+5. **Commit deliberately** — a selected path is recorded as a choice, not as an event that has
+   already happened.
+6. **Return with reality** — later observations revise the model and expose where the simulation
+   was wrong.
 
-Use it from the **terminal** or the **local website** (drag-and-drop files + streamed chat).
+## Epistemic model
 
-## What you get
+Mirror keeps three kinds of information visibly separate:
 
-| | |
-|---|---|
-| **Add files** | Drop diaries, PDFs, images — chunked into local Chroma embeddings |
-| **Chat** | Streamed twin replies; mention “deduce” / “choose” to count the cost |
-| **Life path** | Custom 2–6 months; 3 branches, then 3 from each; nodes you can drag and edit |
-| **History** | After you add files, the previous path is saved in History |
-| **Sandbox** | Compare options and month-by-month simulation |
+- **Observed** — material the user actually provided.
+- **Inferred** — revisable claims supported by one or more observations.
+- **Unknown** — variables that could materially change a simulation.
 
-The UI is English-only.
+The previous capital / energy / entropy meters remain only as legacy compatibility code for old
+local state files. They are not part of the current product interface or the new simulation
+protocol. Weak evidence is expressed as uncertainty, not converted into a number.
 
-## Setup
+## What is implemented
+
+- Local ChromaDB memory with OpenAI embeddings
+- Evidence ingestion for text, Markdown, PDF, Word, and images
+- Durable `twin_profile.json` model with evidence references and confidence
+- Streamed, memory-augmented mirror conversation
+- Three-position cognitive board
+- Base / Support / Friction counterfactual simulation
+- Branching 2–6 month world map
+- Qualitative pressure and plausibility on each generated branch
+- Explicit path commitment
+- Reality-check observations that revise the model and recalculate worlds
+- Separate archive of previous predictions
+
+## Run locally
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# edit .env → set OPENAI_API_KEY
-```
-
-### Website (recommended)
-
-```bash
+# add OPENAI_API_KEY to .env
 uvicorn server:app --reload --port 8787
 ```
 
-Open [http://127.0.0.1:8787](http://127.0.0.1:8787)
+Open [http://127.0.0.1:8787](http://127.0.0.1:8787).
 
-- Drag diaries / PDFs / images onto **Add files**
-- Chat in **Chat**
-- Open **Life path** for past / today / future branches (regenerates after you add files; previous paths stay in History)
-- Use **− / +** to change horizon months; **Regenerate** to redraw
-- Drag nodes; click to edit label and detail
+The app and persistent data run locally, but content used for embeddings, vision, and model
+responses is sent to the API configured by `OPENAI_BASE_URL`. “Local” does not mean offline.
 
-### Terminal CLI
+## Terminal
 
 ```bash
 python main.py
 ```
 
-## Phases
+- `/model` — current Twin Model summary, confidence, and unknown count
+- `/memory` — number of stored observations and interventions
+- `/board [dilemma]` — compare the conflict from three positions
+- `/simulate [hypothesis]` — Base / Support / Friction three-month worlds
+- `/water <path>` — add a file or directory as evidence
+- `/water note: …` — add an observation
 
-| Phase | What |
-|-------|------|
-| 0 | Terminal loop, Colorama, streamed OpenAI replies |
-| 1 | Event-sourced memory (`MemoryManager` + ChromaDB) |
-| 2 | Physical state machine (`state.json`, deduction intercepts) |
-| 3 | Cognitive sandbox (`/board`, `/simulate`) |
-| 4 | Add files (`/water` or web drag-drop) |
-| 5 | Local web UI (`server.py` + `web/`) |
-
-## CLI commands
-
-- Chat normally — the twin streams back
-- `/state` — capital / energy / entropy_rate
-- `/memory` — how many events are in the local store
-- `/board [dilemma]` — three-director debate with memory citations
-- `/simulate [choice]` — stepped path with entropy friction
-- `/water <path>` — add a file or directory
-- `/water note: …` — add an inline diary line
-- `/feed …` — alias of `/water`
-
-## Adding files
-
-Nothing is scraped in the background. You add files via CLI or by dropping them on the site.
-
-- Text / markdown / diary → chunked embeddings
-- PDF / Word → text extracted, then chunked
-- Images → vision caption stored as `Image_Artifact`
-
-## GitHub preview
-
-- **README** — screenshot above (`docs/preview.png`)
-- **GitHub Pages** — enable *Settings → Pages → Build from branch `main`, folder `/docs`* → live at `https://zhouyyj.github.io/digital-twin/`
-
-Replace `docs/preview.png` anytime with a fresh screenshot of your local UI.
+Runtime artifacts are intentionally untracked: `.chroma_db/`, `.uploads/`, `life_path.json`,
+`twin_profile.json`, and legacy `state.json`.
