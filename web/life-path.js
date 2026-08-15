@@ -651,7 +651,7 @@ window.MirrorLifePath = (() => {
     return { highlight, byId };
   }
 
-  function renderHistory(listEl, history, { onPick, labels = {} } = {}) {
+  function renderHistory(listEl, history, { onPick, activeId, labels = {} } = {}) {
     listEl.innerHTML = "";
     if (!history?.length) {
       listEl.innerHTML = `<p class="history-empty">${
@@ -663,17 +663,40 @@ window.MirrorLifePath = (() => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "history-item";
+      if (activeId && h.id === activeId) {
+        btn.classList.add("active");
+        btn.setAttribute("aria-current", "true");
+      }
       const when = (h.archived_at || "").replace("T", " ").slice(0, 19);
       const reasonMap = {
         "water:note": labels.historyReasonNote || "Wrote a diary line",
         "water:upload": labels.historyReasonUpload || "Added files",
         manual: labels.historyReasonManual || "Thought it through again",
         boot: labels.historyReasonBoot || "How it first woke",
+        "language-migration": labels.historyReasonMigration || "Language migration",
       };
       const reason = reasonMap[h.reason] || h.reason || labels.historyReasonFallback || "Old map";
-      btn.innerHTML = `<strong>${reason}</strong><span>${when}</span><em>${
-        h.summary || ""
-      }</em>`;
+
+      const meta = document.createElement("span");
+      meta.className = "history-meta";
+      const reasonEl = document.createElement("strong");
+      reasonEl.textContent = reason;
+      const whenEl = document.createElement("time");
+      whenEl.dateTime = h.archived_at || "";
+      whenEl.textContent = when || "—";
+      meta.append(reasonEl, whenEl);
+
+      const summary = document.createElement("span");
+      summary.className = "history-summary";
+      summary.textContent = h.summary || labels.historyReasonFallback || "Previous path";
+
+      const action = document.createElement("span");
+      action.className = "history-action";
+      action.textContent = activeId && h.id === activeId
+        ? labels.historySelected || "Viewing"
+        : labels.historyView || "View map";
+
+      btn.append(meta, summary, action);
       btn.addEventListener("click", () => onPick && onPick(h));
       listEl.appendChild(btn);
     });

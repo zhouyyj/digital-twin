@@ -27,8 +27,10 @@
   const pathSummary = document.getElementById("pathSummary");
   const historyList = document.getElementById("historyList");
   const historyCount = document.getElementById("historyCount");
+  const historyDrawer = document.getElementById("historyDrawer");
   const regenPathBtn = document.getElementById("regenPathBtn");
   const resetCamBtn = document.getElementById("resetCamBtn");
+  const backCurrentBtn = document.getElementById("backCurrentBtn");
   const horizonMinus = document.getElementById("horizonMinus");
   const horizonPlus = document.getElementById("horizonPlus");
   const horizonValue = document.getElementById("horizonValue");
@@ -299,7 +301,10 @@
       historyReasonUpload: t("historyReasonUpload"),
       historyReasonManual: t("historyReasonManual"),
       historyReasonBoot: t("historyReasonBoot"),
+      historyReasonMigration: t("historyReasonMigration"),
       historyReasonFallback: t("historyReasonFallback"),
+      historyView: t("historyView"),
+      historySelected: t("historySelected"),
     };
 
     window.MirrorLifePath.render(pathSvg, view, {
@@ -309,10 +314,15 @@
       labels: pathLabels,
     });
     window.MirrorLifePath.renderHistory(historyList, data.history || [], {
-      onPick: (h) => paintLifePath(data, { archive: h }),
+      onPick: (h) => {
+        paintLifePath(data, { archive: h });
+        if (historyDrawer) historyDrawer.open = false;
+      },
+      activeId: archive?.id,
       labels: pathLabels,
     });
     historyCount.textContent = String((data.history || []).length);
+    backCurrentBtn.hidden = !archive;
     const commitment = archive ? null : data.commitment;
     commitmentBanner.hidden = !commitment;
     commitmentBanner.textContent = commitment
@@ -323,6 +333,10 @@
       if (fromMap) setHorizon(fromMap, { persist: true, silent: true });
     }
   }
+
+  backCurrentBtn?.addEventListener("click", () => {
+    if (lifePathData) paintLifePath(lifePathData);
+  });
 
   function syncHorizonChrome() {
     if (pathsTitle) pathsTitle.textContent = t("pathsTitle", horizon);
