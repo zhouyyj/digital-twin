@@ -3,7 +3,7 @@
 **A personal world simulator grounded in evidence, uncertainty, and actual choices.**
 
 <p align="center">
-  <img src="docs/mirror-preview-history-ui.png" alt="Mirror — evidence-bound personal world simulator" width="1200" />
+  <img src="docs/digital_twin_preview.png" alt="Mirror — evidence-bound personal world simulator" width="1200" />
 </p>
 
 Mirror is not a generic advice bot and it does not ask you to rate your life with precise
